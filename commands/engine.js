@@ -4,93 +4,119 @@ const { engineDelay } = require('../utils/delay');
 const log = require('../utils/logger');
 
 let currentApi = null;
+// كل مرة نبدأ المحرك نرفع الجيل — السلاسل القديمة تتحقق من الجيل وتتوقف
+let engineGeneration = 0;
+
 function setApi(api) { currentApi = api; }
 
 function startEngineTimer() {
-  if (engineState.timers.has('main')) {
-    const ref = engineState.timers.get('main');
-    if (ref && typeof ref === 'object') ref.active = false;
-    else clearInterval(ref);
-    engineState.timers.delete('main');
-  }
-  if (!engineState.enabled || !engineState.targetThreadID) return;
+  // رفع الجيل يُبطل أي سلسلة قديمة تعمل
+  engineGeneration++;
+  const myGen = engineGeneration;
 
-  function scheduleNext() {
-    if (!engineState.enabled || !engineState.targetThreadID) return;
-    engineDelay(engineState.intervalSeconds).then(() => {
-      if (!engineState.enabled || !currentApi || !engineState.targetThreadID) return;
-      if (engineState.smart) {
-        if (!hasActivity(engineState.targetThreadID)) { scheduleNext(); return; }
-        clearActivity(engineState.targetThreadID);
+  async function loop() {
+    // توقف إذا تغير الجيل أو أُوقف المحرك
+    if (myGen !== engineGeneration || !engineState.enabled || !engineState.targetThreadID) return;
+
+    await engineDelay(engineState.intervalSeconds);
+
+    if (myGen !== engineGeneration || !engineState.enabled || !currentApi || !engineState.targetThreadID) return;
+
+    if (engineState.smart) {
+      if (!hasActivity(engineState.targetThreadID)) {
+        loop(); return;
       }
-      currentApi.sendMessage(engineState.message, engineState.targetThreadID, (err) => {
-        if (err) log.error('Engine send error: ' + err);
-      });
-      scheduleNext();
+      clearActivity(engineState.targetThreadID);
+    }
+
+    currentApi.sendMessage(engineState.message, engineState.targetThreadID, (err) => {
+      if (err) log.error('Engine send error: ' + err);
     });
+
+    loop();
   }
-  const timerRef = { active: true };
-  engineState.timers.set('main', timerRef);
-  scheduleNext();
+
+  loop();
 }
 
 function stopEngineTimer() {
-  if (engineState.timers.has('main')) {
-    const ref = engineState.timers.get('main');
-    if (ref && typeof ref === 'object') ref.active = false;
-    else clearInterval(ref);
-    engineState.timers.delete('main');
-  }
+  // رفع الجيل يوقف السلسلة الحالية
+  engineGeneration++;
 }
 
 function handle(event, botApi, args, prefix) {
   setApi(botApi);
   const { senderID, threadID } = event;
-  if (!isAdmin(senderID)) return botApi.sendMessage('❌ ليس لديك صلاحية استخدام هذا الأمر.', threadID);
-  const subCmd = args[0] ? args[0].toLowerCase() : '';
+  const subCmd = (args[0] || '').toLowerCase();
 
+  // ── تشغيل/إيقاف تبديل ──
   if (!subCmd) {
     if (engineState.enabled) {
-      stopEngineTimer(); setEngineEnabled(false);
+      stopEngineTimer();
+      setEngineEnabled(false);
       return botApi.sendMessage('🔴 تم إيقاف المحرك.', threadID);
-    } else {
-      if (!engineState.targetThreadID) setEngineTarget(threadID);
-      setEngineEnabled(true); startEngineTimer();
-      return botApi.sendMessage(
-        '🟢 تم تشغيل المحرك.\n📍 المجموعة: ' + engineState.targetThreadID +
-        '\n⏱ كل: ~' + engineState.intervalSeconds + ' ثانية (±20% عشوائي)' +
-        '\n💬 الرسالة: ' + engineState.message +
-        '\n🧠 الذكي: ' + (engineState.smart ? 'مفعل' : 'موقوف'), threadID);
     }
+    setEngineTarget(threadID);
+    setEngineEnabled(true);
+    startEngineTimer();
+    return botApi.sendMessage(
+      '🟢 تم تشغيل المحرك.\n' +
+      '📍 المجموعة: هذه المجموعة\n' +
+      '⏱ كل: ~' + engineState.intervalSeconds + 'ث (±20%)\n' +
+      '💬 الرسالة: ' + engineState.message + '\n' +
+      '🧠 الذكي: ' + (engineState.smart ? 'مفعل ✅' : 'موقوف ❌'),
+      threadID
+    );
   }
+
+  // ── تشغيل صريح ──
+  if (subCmd === 'تشغيل' || subCmd === 'on') {
+    if (engineState.enabled) return botApi.sendMessage('⚠️ المحرك يعمل بالفعل.', threadID);
+    setEngineTarget(threadID);
+    setEngineEnabled(true);
+    startEngineTimer();
+    return botApi.sendMessage('🟢 تم تشغيل المحرك.', threadID);
+  }
+
+  // ── إيقاف صريح ──
+  if (subCmd === 'ايقاف' || subCmd === 'إيقاف' || subCmd === 'off') {
+    if (!engineState.enabled) return botApi.sendMessage('⚠️ المحرك متوقف بالفعل.', threadID);
+    stopEngineTimer();
+    setEngineEnabled(false);
+    return botApi.sendMessage('🔴 تم إيقاف المحرك.', threadID);
+  }
+
+  // ── تعيين الرسالة ──
   if (subCmd === 'رسالة' || subCmd === 'message') {
-    const msg = args.slice(1).join(' ');
-    if (!msg) return botApi.sendMessage('❗ مثال: /محرك رسالة مرحباً', threadID);
+    const msg = args.slice(1).join(' ').trim();
+    if (!msg) return botApi.sendMessage('❗ مثال: ' + prefix + 'محرك رسالة مرحباً', threadID);
     setEngineMessage(msg);
     return botApi.sendMessage('✅ تم تعيين رسالة المحرك:\n"' + msg + '"', threadID);
   }
+
+  // ── تعيين الوقت ──
   if (subCmd === 'وقت' || subCmd === 'time') {
     const secs = parseInt(args[1]);
-    if (isNaN(secs) || secs < 10) return botApi.sendMessage('❗ الحد الأدنى 10 ثواني لتجنب الحظر.\nمثال: /محرك وقت 30', threadID);
+    if (isNaN(secs) || secs < 10)
+      return botApi.sendMessage('❗ الحد الأدنى 10 ثواني لتجنب الحظر.\nمثال: ' + prefix + 'محرك وقت 30', threadID);
     setEngineInterval(secs);
+    // إعادة تشغيل السلسلة بالوقت الجديد إذا كان المحرك يعمل
     if (engineState.enabled) startEngineTimer();
-    return botApi.sendMessage('✅ تم تعيين وقت المحرك: ~' + secs + ' ثانية (±20% عشوائي).', threadID);
+    return botApi.sendMessage('✅ تم تعيين وقت المحرك: ~' + secs + 'ث (±20% عشوائي).', threadID);
   }
+
+  // ── الوضع الذكي ──
   if (subCmd === 'الذكي' || subCmd === 'smart') {
-    const v = !engineState.smart; setEngineSmart(v);
-    return botApi.sendMessage(v ? '🧠 تم تفعيل وضع الذكي.' : '🧠 تم إيقاف وضع الذكي.', threadID);
+    const v = !engineState.smart;
+    setEngineSmart(v);
+    return botApi.sendMessage(
+      v ? '🧠 تم تفعيل الوضع الذكي.\nالمحرك سيرسل فقط عند وجود نشاط في المجموعة.'
+        : '🧠 تم إيقاف الوضع الذكي.',
+      threadID
+    );
   }
-  if (subCmd === 'تشغيل' || subCmd === 'on') {
-    if (engineState.enabled) return botApi.sendMessage('⚠️ المحرك يعمل بالفعل.', threadID);
-    if (!engineState.targetThreadID) setEngineTarget(threadID);
-    setEngineEnabled(true); startEngineTimer();
-    return botApi.sendMessage('🟢 تم تشغيل المحرك.', threadID);
-  }
-  if (subCmd === 'ايقاف' || subCmd === 'إيقاف' || subCmd === 'off') {
-    if (!engineState.enabled) return botApi.sendMessage('⚠️ المحرك متوقف بالفعل.', threadID);
-    stopEngineTimer(); setEngineEnabled(false);
-    return botApi.sendMessage('🔴 تم إيقاف المحرك.', threadID);
-  }
+
+  // ── الحالة ──
   if (subCmd === 'حالة' || subCmd === 'status') {
     return botApi.sendMessage(
       '📊 حالة المحرك:\n' +
@@ -98,16 +124,20 @@ function handle(event, botApi, args, prefix) {
       '▪️ الرسالة: ' + engineState.message + '\n' +
       '▪️ الوقت: ~' + engineState.intervalSeconds + 'ث (±20%)\n' +
       '▪️ الذكي: ' + (engineState.smart ? '✅ مفعل' : '❌ موقوف') + '\n' +
-      '▪️ المجموعة: ' + (engineState.targetThreadID || 'غير محدد'), threadID);
+      '▪️ المجموعة: ' + (engineState.targetThreadID || 'غير محدد'),
+      threadID
+    );
   }
+
   return botApi.sendMessage(
     '⚙️ أوامر المحرك:\n' +
     prefix + 'محرك — تشغيل/إيقاف\n' +
     prefix + 'محرك رسالة [نص]\n' +
-    prefix + 'محرك وقت [ثواني] (min: 10)\n' +
-    prefix + 'محرك الذكي\n' +
-    prefix + 'محرك حالة', threadID);
+    prefix + 'محرك وقت [ثواني] (الحد الأدنى 10)\n' +
+    prefix + 'محرك الذكي — تشغيل/إيقاف الوضع الذكي\n' +
+    prefix + 'محرك حالة',
+    threadID
+  );
 }
 
 module.exports = { handle, setApi, startEngineTimer, stopEngineTimer };
-module.exports.markActivityForEngine = markActivity;
