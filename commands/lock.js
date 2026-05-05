@@ -1,49 +1,36 @@
-const { isAdmin } = require('../utils/admin');
-const { lockState, setSmartLock, lockGroup, unlockGroup, isLocked } = require('../utils/state');
-const log = require('../utils/logger');
+const locked = new Set();
+let smartLock = false;
 
-function handle(event, api, args, prefix) {
-  const { senderID, threadID } = event;
-  if (!isAdmin(senderID)) return api.sendMessage('❌ ليس لديك صلاحية استخدام هذا الأمر.', threadID);
-  const subCmd = args[0] || '';
+const isLocked = threadID => smartLock || locked.has(String(threadID));
 
-  if (!subCmd) {
-    if (lockState.lockedGroups.has(String(threadID))) {
-      unlockGroup(threadID); log.bot('Group ' + threadID + ' unlocked by ' + senderID);
-      return api.sendMessage('🔓 تم فتح هذه المجموعة.\nالبوت سيستجيب للجميع الآن.', threadID);
-    } else {
-      lockGroup(threadID); log.bot('Group ' + threadID + ' locked by ' + senderID);
-      return api.sendMessage('🔒 تم قفل هذه المجموعة.\nالبوت لن يستجيب إلا للمشرفين.', threadID);
+function handle(event, api, args) {
+  const { threadID } = event;
+  const sub = (args[0] || '').toLowerCase();
+
+  if (!sub) {
+    if (locked.has(String(threadID))) {
+      locked.delete(String(threadID));
+      return api.sendMessage('🔓 تم فتح هذه المجموعة. البوت يستجيب للجميع.', threadID);
     }
+    locked.add(String(threadID));
+    return api.sendMessage('🔒 تم قفل هذه المجموعة. البوت يستجيب للمشرفين فقط.', threadID);
   }
-  if (subCmd === 'الذكي' || subCmd === 'smart') {
-    const v = !lockState.smartLock; setSmartLock(v);
-    return api.sendMessage(v ? '🔒 تم تفعيل القفل الذكي.\nالبوت مقفل في جميع المجموعات.' : '🔓 تم إيقاف القفل الذكي.', threadID);
+
+  if (sub === 'الذكي' || sub === 'smart') {
+    smartLock = !smartLock;
+    return api.sendMessage(smartLock
+      ? '🔒 القفل الذكي مفعّل — كل المجموعات مقفلة.'
+      : '🔓 القفل الذكي موقوف.', threadID);
   }
-  if (subCmd === 'تشغيل' || subCmd === 'on') {
-    lockGroup(threadID);
-    return api.sendMessage('🔒 تم تشغيل القفل في هذه المجموعة.', threadID);
-  }
-  if (subCmd === 'ايقاف' || subCmd === 'إيقاف' || subCmd === 'off') {
-    unlockGroup(threadID); if (lockState.smartLock) setSmartLock(false);
-    return api.sendMessage('🔓 تم إيقاف القفل.', threadID);
-  }
-  if (subCmd === 'حالة' || subCmd === 'status') {
-    const locked = isLocked(threadID);
+
+  if (sub === 'حالة' || sub === 'status') {
     return api.sendMessage(
       '🔒 حالة القفل:\n' +
-      '▪️ الذكي: ' + (lockState.smartLock ? '🔴 مفعل' : '⚪ موقوف') + '\n' +
-      '▪️ هذه المجموعة: ' + (lockState.lockedGroups.has(String(threadID)) ? '🔴 مقفل' : '🟢 مفتوح') + '\n' +
-      '▪️ الحالة الفعلية: ' + (locked ? '🔒 مقفل' : '🔓 مفتوح'),
-      threadID
-    );
+      '▪ القفل الذكي: ' + (smartLock ? '🔴 مفعّل' : '⚪ موقوف') + '\n' +
+      '▪ هذه المجموعة: ' + (locked.has(String(threadID)) ? '🔒 مقفلة' : '🔓 مفتوحة'), threadID);
   }
-  return api.sendMessage(
-    '🔒 أوامر القفل:\n' +
-    prefix + 'قفل — قفل/فتح هذه المجموعة\n' +
-    prefix + 'قفل الذكي — قفل/فتح كل المجموعات\n' +
-    prefix + 'قفل حالة — عرض الحالة',
-    threadID
-  );
+
+  return api.sendMessage('/قفل — قفل/فتح\n/قفل الذكي\n/قفل حالة', threadID);
 }
-module.exports = { handle };
+
+module.exports = { handle, isLocked };
