@@ -1,0 +1,14 @@
+{
+  "prefix": "/",
+  "botName": "Bot",
+  "superAdmins": ["61588993301978"],
+  "reconnectDelay": 5000,
+  "maxReconnectAttempts": 0,
+  "listenEvents": true,
+  "selfListen": false,
+  "logLevel": "error",
+  "online": true,
+  "autoMarkRead": false,
+  "autoMarkDelivery": false,
+  "forceLogin": false
+}
