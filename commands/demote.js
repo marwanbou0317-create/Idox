@@ -1,43 +1,29 @@
-const { isSuperAdmin, isAdmin, removeAdmin } = require('../utils/admin');
-const log = require('../utils/logger');
-
-function parseMentions(mentions) {
-  if (!mentions) return null;
-  if (Array.isArray(mentions) && mentions.length > 0) {
-    const m = mentions[0];
-    return { id: String(m.id || m.userID || ''), name: String(m.name || m.tag || '') };
-  }
-  const keys = Object.keys(mentions);
-  if (keys.length > 0) return { id: String(keys[0]), name: String(mentions[keys[0]] || keys[0]) };
-  return null;
-}
+const admin = require('../utils/admin');
+const parseMentions = require('../_mentions');
 
 function handle(event, api, args) {
   const { senderID, threadID } = event;
-  if (!isSuperAdmin(senderID))
+  if (!admin.isSuperAdmin(senderID))
     return api.sendMessage('❌ فقط سوبر أدمن يمكنه إنزال الأشخاص.', threadID);
 
-  let targetID = null, targetName = null;
-  const mention = parseMentions(event.mentions);
+  const mentions = parseMentions(event.mentions);
+  let id, name;
 
-  if (mention && mention.id) {
-    targetID = mention.id;
-    targetName = mention.name;
+  if (mentions.length) {
+    id   = mentions[0].id;
+    name = mentions[0].name;
   } else if (args[0] && /^\d{5,}$/.test(args[0])) {
-    targetID = args[0];
-    targetName = args[0];
+    id   = args[0];
+    name = id;
+  } else {
+    return api.sendMessage('❗ حدد شخصاً.\nمثال: /اخفاض @اسم\nأو: /اخفاض [ID]', threadID);
   }
 
-  if (!targetID)
-    return api.sendMessage('❗ يجب تحديد شخص.\nمثال: /اخفاض @اسم\nأو: /اخفاض [ID]', threadID);
-  if (isSuperAdmin(targetID))
-    return api.sendMessage('🚫 لا يمكن إنزال سوبر أدمن. هذه الرتبة محمية.', threadID);
-  if (!isAdmin(targetID))
-    return api.sendMessage('⚠️ ' + targetName + ' ليس مشرفاً.', threadID);
+  if (admin.isSuperAdmin(id)) return api.sendMessage('🚫 لا يمكن إنزال سوبر أدمن.', threadID);
+  if (!admin.isAdmin(id))     return api.sendMessage('⚠️ ' + name + ' ليس مشرفاً.', threadID);
 
-  removeAdmin(targetID);
-  log.bot(targetID + ' demoted by ' + senderID);
-  return api.sendMessage('✅ تم إنزال ' + targetName + ' من رتبة مشرف البوت.', threadID);
+  admin.demote(id);
+  return api.sendMessage('✅ تم إنزال ' + name + ' من رتبة مشرف البوت.', threadID);
 }
 
 module.exports = { handle };
