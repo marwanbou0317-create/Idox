@@ -1,14 +1,11 @@
 const config = require('../config.json');
-const admins = new Set();
+const runtime = new Set();               // مشرفون يُضافون أثناء التشغيل
 
-function isSuperAdmin(userID) { return config.superAdmins.includes(String(userID)); }
-function isAdmin(userID) { return admins.has(String(userID)) || isSuperAdmin(userID); }
-function addAdmin(userID) { admins.add(String(userID)); }
-function removeAdmin(userID) { admins.delete(String(userID)); }
-function getAdmins() { return [...admins]; }
-function getRole(userID) {
-  if (isSuperAdmin(userID)) return 'superadmin';
-  if (isAdmin(userID)) return 'admin';
-  return 'user';
-}
-module.exports = { isSuperAdmin, isAdmin, addAdmin, removeAdmin, getAdmins, getRole };
+const isSuperAdmin = uid => config.superAdmins.includes(String(uid));
+const isAdmin      = uid => isSuperAdmin(uid) || runtime.has(String(uid));
+const promote      = uid => runtime.add(String(uid));
+const demote       = uid => runtime.delete(String(uid));
+const getRole      = uid => isSuperAdmin(uid) ? 'superadmin' : isAdmin(uid) ? 'admin' : 'user';
+const getAdmins    = ()  => [...runtime];
+
+module.exports = { isSuperAdmin, isAdmin, promote, demote, getRole, getAdmins };
