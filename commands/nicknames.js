@@ -1,91 +1,71 @@
 const log = require('../utils/logger');
-const { isAdmin } = require('../utils/admin');
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+const DELAY_BETWEEN = 3500;
+const BATCH_SIZE    = 5;
+const BATCH_DELAY   = 12000;
 
-async function getThread(api, threadID) {
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(null), 15000);
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function getThread(api, threadID) {
+  return new Promise(resolve => {
+    const t = setTimeout(() => resolve(null), 15000);
     try {
-      api.getThreadInfo(threadID, (err, info) => {
-        clearTimeout(timer);
-        resolve(err ? null : info);
-      });
-    } catch (e) { clearTimeout(timer); resolve(null); }
+      api.getThreadInfo(threadID, (err, info) => { clearTimeout(t); resolve(err ? null : info); });
+    } catch { clearTimeout(t); resolve(null); }
   });
 }
 
-async function setNick(api, nickname, threadID, uid) {
-  const fn = api.setNickname || api.changeNickname;
-  if (!fn) { log.error('setNickname غير متاح'); return false; }
-  return new Promise((resolve) => {
+function setNick(api, nickname, threadID, uid) {
+  return new Promise(resolve => {
+    const fn = api.setNickname || api.changeNickname;
+    if (!fn) { resolve(false); return; }
     try {
-      fn.call(api, nickname, threadID, uid, (err) => {
-        if (err) { log.error('nicknames خطأ لـ ' + uid + ': ' + JSON.stringify(err)); resolve(false); }
-        else resolve(true);
+      fn.call(api, nickname, threadID, uid, err => {
+        if (err) log.error('nicknames ' + uid + ': ' + JSON.stringify(err));
+        resolve(!err);
       });
-    } catch (e) { log.error('nicknames استثناء: ' + e.message); resolve(false); }
+    } catch (e) { resolve(false); }
   });
 }
 
 async function setNickRetry(api, nickname, threadID, uid) {
-  for (let i = 1; i <= 3; i++) {
+  for (let i = 0; i < 3; i++) {
     if (await setNick(api, nickname, threadID, uid)) return true;
-    if (i < 3) await sleep(5000 * i);
+    if (i < 2) await wait(5000 * (i + 1));
   }
   return false;
 }
 
 async function handle(event, api, args) {
-  const { threadID, senderID } = event;
-  if (!isAdmin(senderID)) return api.sendMessage('❌ ليس لديك صلاحية استخدام هذا الأمر.', threadID);
+  const { threadID } = event;
+  const raw     = args.join(' ').trim();
+  const isReset = !raw || raw === 'reset' || raw === 'مسح';
+  const nick    = isReset ? '' : raw;
 
-  const input = args.join(' ').trim();
-  if (!input) {
-    return api.sendMessage(
-      '📌 طريقة الاستخدام:\n' +
-      '/كنيات [نص] — نفس الكنية لكل الأعضاء\n' +
-      '/كنيات reset — مسح كنيات الجميع\n\n' +
-      'مثال: /كنيات VIP ⭐',
-      threadID
-    );
-  }
+  if (!raw)
+    return api.sendMessage('/كنيات [نص] — نفس الكنية للجميع\n/كنيات reset — مسح الكنيات\n\nمثال: /كنيات VIP ⭐', threadID);
 
-  const isReset = input === 'reset' || input === 'مسح';
-  const nickname = isReset ? '' : input;
-
-  api.sendMessage('⏳ جاري جلب أعضاء المجموعة...', threadID);
+  api.sendMessage('⏳ جاري جلب الأعضاء...', threadID);
   const info = await getThread(api, threadID);
-  if (!info) return api.sendMessage('❌ تعذّر جلب معلومات المجموعة. حاول مجدداً.', threadID);
+  if (!info || !info.participantIDs?.length)
+    return api.sendMessage('❌ تعذّر جلب الأعضاء.', threadID);
 
-  const members = info.participantIDs || [];
-  if (!members.length) return api.sendMessage('⚠️ لا يوجد أعضاء في هذه المجموعة.', threadID);
-
-  api.sendMessage(
-    '⏳ جاري ' + (isReset ? 'مسح كنيات' : 'تعيين "' + nickname + '" لـ') + ' ' + members.length + ' عضو...',
-    threadID
-  );
+  const members = info.participantIDs;
+  api.sendMessage('⏳ ' + members.length + ' عضو — جاري المعالجة...', threadID);
 
   let done = 0, fail = 0;
   for (let i = 0; i < members.length; i++) {
-    if (i > 0 && i % 5 === 0) await sleep(12000);
-    else if (i > 0) await sleep(3000 + Math.random() * 2000);
-
-    if (await setNickRetry(api, nickname, threadID, members[i])) {
+    if (i > 0 && i % BATCH_SIZE === 0) await wait(BATCH_DELAY);
+    else if (i > 0) await wait(DELAY_BETWEEN);
+    if (await setNickRetry(api, nick, threadID, members[i])) {
       done++;
-      if (done % 10 === 0)
-        api.sendMessage('⏳ تقدّم: ' + done + ' من ' + members.length + '...', threadID);
-    } else {
-      fail++;
-    }
+      if (done % 10 === 0) api.sendMessage('⏳ ' + done + ' / ' + members.length, threadID);
+    } else fail++;
   }
 
   return api.sendMessage(
-    '✅ اكتمل!\n' +
-    (isReset ? '🗑 مُسح: ' + done : '✏️ تم تعيين "' + nickname + '" لـ ' + done) +
-    (fail ? '\n❌ فشل: ' + fail : ''),
-    threadID
-  );
+    '✅ اكتمل!\n' + (isReset ? '🗑 مُسح: ' + done : '✏️ "' + nick + '" لـ ' + done) +
+    (fail ? '\n❌ فشل: ' + fail : ''), threadID);
 }
 
 module.exports = { handle };
