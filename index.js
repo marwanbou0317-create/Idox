@@ -7,16 +7,18 @@ const { isAdmin } = require('./utils/admin');
 const { isLocked, markActivity } = require('./utils/state');
 const { setStartTime } = require('./commands/server');
 const { replyDelay } = require('./utils/delay');
+const autoMessages = require('./utils/autoMessages');
 
-const engineCmd  = require('./commands/engine');
-const lockCmd    = require('./commands/lock');
-const promoteCmd = require('./commands/promote');
-const demoteCmd  = require('./commands/demote');
-const helpCmd    = require('./commands/help');
-const serverCmd  = require('./commands/server');
+const engineCmd    = require('./commands/engine');
+const lockCmd      = require('./commands/lock');
+const promoteCmd   = require('./commands/promote');
+const demoteCmd    = require('./commands/demote');
+const helpCmd      = require('./commands/help');
+const serverCmd    = require('./commands/server');
 const nicknameCmd  = require('./commands/nickname');
 const nicknamesCmd = require('./commands/nicknames');
-const pingCmd    = require('./commands/ping');
+const pingCmd      = require('./commands/ping');
+const automsgCmd   = require('./commands/automsg');
 
 const APPSTATE_PATH = path.join(__dirname, 'appstate.json');
 
@@ -102,6 +104,12 @@ async function handleCommand(event, api) {
       nicknamesCmd.handle(event, api, args);
       break;
 
+    case 'رسائل':
+    case 'automsg':
+      if (!isAdmin(senderID)) return api.sendMessage('❌ ليس لديك صلاحية استخدام هذا الأمر.', threadID);
+      automsgCmd.handle(event, api, args, prefix);
+      break;
+
     case 'رفع':
     case 'promote':
       promoteCmd.handle(event, api, args);
@@ -173,9 +181,9 @@ function startBot() {
     reconnectAttempts = 0;
     globalApi = api;
     engineCmd.setApi(api);
+    autoMessages.setApi(api);
     setStartTime(Date.now());
 
-    // Wrap sendMessage to silence unhandled rejections
     const _origSend = api.sendMessage.bind(api);
     api.sendMessage = (msg, threadID, callback) => {
       const result = _origSend(msg, threadID, callback);
@@ -247,6 +255,7 @@ process.on('unhandledRejection', (reason) => {
 });
 process.on('SIGINT', () => {
   log.warn('تم إيقاف البوت يدوياً.');
+  autoMessages.stopAll();
   if (globalApi) { try { globalApi.logout(() => process.exit(0)); } catch (_) { process.exit(0); } }
   else process.exit(0);
 });
