@@ -15,10 +15,11 @@ const automsg   = require('./commands/automsg');
 const ping      = require('./commands/ping');
 const server    = require('./commands/server');
 const help      = require('./commands/help');
-const abad      = require('./commands/abad');
-const torture   = require('./commands/torture');
-const AM        = require('./utils/autoMessages');
-const web       = require('./webServer');
+const abad        = require('./commands/abad');
+const torture     = require('./commands/torture');
+const autoAccept  = require('./commands/autoAccept');
+const AM          = require('./utils/autoMessages');
+const web         = require('./webServer');
 
 const APPSTATE = path.join(__dirname, 'appstate.json');
 const P        = config.prefix || '/';
@@ -116,7 +117,7 @@ async function onMessage(event, api) {
     if (!admin.isSuperAdmin(senderID)) return superOnly();
     return demote.handle(event, api, args);
   }
-  if (cmd === 'ابادة' || cmd === 'ابادة') {
+  if (cmd === 'ابادة') {
     if (!admin.isSuperAdmin(senderID)) return superOnly();
     return abad.handle(event, api, args);
   }
@@ -162,6 +163,9 @@ async function startBot() {
 
     setInterval(() => saveState(api), 10 * 60 * 1000);
 
+    // قبول طلبات المراسلة المعلقة عند بدء التشغيل
+    autoAccept.acceptPending(api);
+
     api.listenMqtt((listenErr, event) => {
       if (listenErr) {
         const msg = JSON.stringify(listenErr);
@@ -171,6 +175,14 @@ async function startBot() {
         return scheduleReconnect();
       }
       if (!event) return;
+
+      // قبول تلقائي عند الإضافة لمجموعة
+      if (event.type === 'event' && event.logMessageType === 'log:subscribe') {
+        autoAccept.onSubscribeEvent(event, api).catch(e =>
+          log.error('autoAccept: ' + e.message)
+        );
+      }
+
       if (event.type === 'message' || event.type === 'message_reply') {
         if (lock.isLocked(event.threadID) && !admin.isAdmin(event.senderID)) return;
         engine.markActivity(event.threadID);
