@@ -1,9 +1,13 @@
 const log = require('../utils/logger');
+const { jitter } = require('../utils/actionQueue');
 
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function acceptPending(api) {
   try {
+    // تأخير بدء الفحص لتجنب التحميل الزائد عند الاتصال
+    await wait(jitter(5000, 9000));
+
     const threads = await api.getThreadList(30, null, ['PENDING']);
     if (!threads || !threads.length) return;
 
@@ -13,9 +17,10 @@ async function acceptPending(api) {
       try {
         await api.sendMessage('✅', t.threadID);
         log.bot('تم قبول: ' + t.threadID + (t.threadName ? ' (' + t.threadName + ')' : ''));
-        await wait(2000);
+        await wait(jitter(2500, 4500));
       } catch (e) {
         log.error('فشل قبول ' + t.threadID + ': ' + (e?.message || e));
+        await wait(2000);
       }
     }
   } catch (e) {
@@ -37,7 +42,7 @@ async function onSubscribeEvent(event, api) {
     const { threadID } = event;
     log.bot('تمت الإضافة للمجموعة: ' + threadID + ' — قبول تلقائي');
 
-    await wait(2000);
+    await wait(jitter(2500, 4000));
     await api.sendMessage('✅ تم الانضمام!', threadID);
     log.bot('تم قبول المجموعة: ' + threadID);
   } catch (e) {
