@@ -14,5 +14,28 @@
   "online": true,
   "autoMarkRead": false,
   "autoMarkDelivery": false,
-  "forceLogin": false
+  "forceLogin": false,
+
+  "cooldowns": {
+    "default":   5,
+    "تعذيب":    30,
+    "torture":   30,
+    "ابادة":    60,
+    "كنيات":    20,
+    "nicknames": 20,
+    "كنية":     10,
+    "nickname":  10,
+    "رسائل":     8,
+    "automsg":   8
+  },
+
+  "antiban": {
+    "minDelay":        900,
+    "maxDelay":       2500,
+    "tortureDelay":   3500,
+    "abadDelay":      3000,
+    "nickDelay":      3000,
+    "nickBatchSize":     5,
+    "nickBatchDelay": 12000
+  }
 }
