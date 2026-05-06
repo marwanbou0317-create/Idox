@@ -115,4 +115,19 @@ function handle(event, api, args) {
     '/محرك حالة', threadID);
 }
 
-module.exports = { handle, setApi, markActivity };
+function getState() {
+  return {
+    on:      state.on,
+    message: state.message,
+    seconds: state.seconds,
+    smart:   state.smart,
+    thread:  state.thread,
+  };
+}
+
+function remoteStart(threadID) { start(threadID || state.thread); }
+function remoteStop()          { stop(); }
+function setMessage(msg)       { state.message = msg; if (state.on) start(); }
+function setSeconds(s)         { state.seconds = s;   if (state.on) start(); }
+
+module.exports = { handle, setApi, markActivity, getState, remoteStart, remoteStop, setMessage, setSeconds };
