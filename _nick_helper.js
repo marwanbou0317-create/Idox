@@ -11,7 +11,7 @@ async function getThread(api, threadID) {
 
 async function setNick(api, nickname, threadID, uid) {
   try {
-    await api.setNickname(nickname, threadID, uid);
+    await api.nickname(nickname, threadID, uid);
     return true;
   } catch (e) {
     log.error('setNick [' + uid + ']: ' + (e?.message || e));
