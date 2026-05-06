@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bot Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&family=Inter:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d0d0d;--bg2:#161616;--bg3:#1e1e1e;--card:#1a1a2e;
+  --blue:#2563eb;--blue2:#3b82f6;--blue3:#1d4ed8;
+  --text:#f1f5f9;--text2:#94a3b8;--text3:#64748b;
+  --border:#2d2d3d;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;
+  --radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4);
+}
+.light{
+  --bg:#f0f4ff;--bg2:#ffffff;--bg3:#e8f0fe;--card:#ffffff;
+  --text:#1e293b;--text2:#475569;--text3:#94a3b8;
+  --border:#dde6f8;--shadow:0 4px 24px rgba(37,99,235,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background .3s,color .3s}
+body.ltr{font-family:'Inter',sans-serif;direction:ltr}
+/* Layout */
+.app{display:flex;min-height:100vh}
+.sidebar{width:240px;background:var(--card);border-left:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;right:0;bottom:0;z-index:100;transition:transform .3s}
+body.ltr .sidebar{right:auto;left:0;border-left:none;border-right:1px solid var(--border)}
+.main{margin-right:240px;flex:1;padding:24px;max-width:100%}
+body.ltr .main{margin-right:0;margin-left:240px}
+/* Sidebar */
+.logo{padding:20px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.logo-icon{width:36px;height:36px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.logo-text{font-size:16px;font-weight:700;color:var(--text)}
+.logo-sub{font-size:11px;color:var(--text3)}
+.nav{flex:1;padding:12px 8px;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;color:var(--text2);font-size:13px;transition:all .2s;margin-bottom:2px;user-select:none}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:var(--blue);color:#fff}
+.nav-item .icon{font-size:16px;width:20px;text-align:center}
+.sidebar-footer{padding:12px 8px;border-top:1px solid var(--border)}
+/* Status badge */
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--danger);display:inline-block;animation:pulse 2s infinite}
+.status-dot.on{background:var(--success)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+/* Cards */
+.page{display:none}.page.active{display:block}
+.page-header{margin-bottom:24px}
+.page-title{font-size:22px;font-weight:700;margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--text3)}
+.grid{display:grid;gap:16px}
+.grid-2{grid-template-columns:1fr 1fr}
+.grid-3{grid-template-columns:repeat(3,1fr)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
+/* Stat cards */
+.stat{display:flex;flex-direction:column;gap:6px}
+.stat-val{font-size:28px;font-weight:700;color:var(--text)}
+.stat-label{font-size:12px;color:var(--text3)}
+.stat-icon{font-size:24px;margin-bottom:8px}
+/* Forms */
+label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px}
+input,textarea,select{width:100%;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;outline:none;transition:border .2s}
+input:focus,textarea:focus,select:focus{border-color:var(--blue)}
+textarea{min-height:100px;resize:vertical}
+.form-group{margin-bottom:16px}
+/* Buttons */
+.btn{padding:10px 18px;border-radius:8px;border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:var(--blue3)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{opacity:.85}
+.btn-ghost{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--blue);color:var(--blue)}
+.btn-success{background:var(--success);color:#fff}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+/* Toggle */
+.toggle{position:relative;width:44px;height:24px;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-track{position:absolute;inset:0;background:var(--bg3);border-radius:12px;border:1px solid var(--border);transition:.3s}
+.toggle input:checked+.toggle-track{background:var(--blue);border-color:var(--blue)}
+.toggle-thumb{position:absolute;top:2px;right:2px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.3s}
+body.ltr .toggle-thumb{right:auto;left:2px}
+.toggle input:checked~.toggle-thumb{right:24px}
+body.ltr .toggle input:checked~.toggle-thumb{right:auto;left:24px}
+/* Log viewer */
+.log-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;height:320px;overflow-y:auto;font-family:monospace;font-size:12px;direction:ltr}
+.log-line{padding:2px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.log-INFO{color:#60a5fa}
+.log-WARN{color:#fbbf24}
+.log-ERROR{color:#f87171}
+.log-OK{color:#4ade80}
+.log-BOT{color:#c084fc}
+/* Admin list */
+.admin-item{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:6px;font-size:13px}
+.admin-id{font-family:monospace;color:var(--blue2)}
+/* Badge */
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-green{background:rgba(34,197,94,.15);color:var(--success)}
+.badge-blue{background:rgba(37,99,235,.15);color:var(--blue2)}
+.badge-red{background:rgba(239,68,68,.15);color:var(--danger)}
+/* Switch row */
+.switch-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)}
+.switch-row:last-child{border-bottom:none}
+.switch-info h4{font-size:14px;font-weight:600;margin-bottom:2px}
+.switch-info p{font-size:12px;color:var(--text3)}
+/* Auto msg table */
+.msg-row{display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg3);border-radius:8px;margin-bottom:6px;font-size:12px}
+.msg-id{background:var(--blue);color:#fff;border-radius:4px;padding:2px 6px;font-weight:700;min-width:28px;text-align:center}
+.msg-txt{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msg-time{color:var(--text3);white-space:nowrap}
+/* Dev tools */
+.code-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:monospace;font-size:12px;white-space:pre-wrap;overflow-x:auto;direction:ltr;color:var(--text2)}
+/* Alert */
+.alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:12px;display:none}
+.alert.show{display:block}
+.alert-success{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:var(--success)}
+.alert-error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--danger)}
+/* Header controls */
+.header-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 0 20px;gap:12px;flex-wrap:wrap}
+.header-controls{display:flex;gap:8px;align-items:center}
+.icon-btn{width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text2);transition:all .2s}
+.icon-btn:hover{border-color:var(--blue);color:var(--blue)}
+/* Mobile */
+@media(max-width:768px){
+  .sidebar{transform:translateX(100%)}
+  body.ltr .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin:0;padding:70px 16px 80px}
+  .grid-2,.grid-3{grid-template-columns:1fr}
+  .bottom-nav{display:flex!important}
+}
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);padding:8px 0;z-index:100;justify-content:space-around}
+.bnav-item{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 12px;cursor:pointer;color:var(--text3);font-size:10px;border-radius:8px;transition:.2s}
+.bnav-item.active,.bnav-item:hover{color:var(--blue)}
+.bnav-item .icon{font-size:18px}
+/* Token modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:var(--card);border-radius:var(--radius);padding:28px;width:100%;max-width:400px;border:1px solid var(--border)}
+.modal h2{margin-bottom:8px;font-size:18px}
+.modal p{color:var(--text2);font-size:13px;margin-bottom:20px}
+/* Hamburger */
+.hamburger{display:none;position:fixed;top:12px;right:12px;z-index:150;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;cursor:pointer;font-size:18px}
+body.ltr .hamburger{right:auto;left:12px}
+@media(max-width:768px){.hamburger{display:flex}}
+.overlay-bg{display:none;position:fixed;inset:0;z-index:99}
+.overlay-bg.show{display:block}
+</style>
+</head>
+<body>
+
+<!-- Token Modal -->
+<div class="modal-overlay" id="tokenModal">
+  <div class="modal">
+    <h2 id="t-login">🔐 تسجيل الدخول</h2>
+    <p id="t-login-sub">أدخل رمز الدخول للوحة التحكم</p>
+    <div class="form-group">
+      <label id="t-token-label">رمز الدخول</label>
+      <input type="password" id="tokenInput" placeholder="bot123">
+    </div>
+    <button class="btn btn-primary" onclick="saveToken()" style="width:100%" id="t-enter">دخول</button>
+  </div>
+</div>
+
+<div class="overlay-bg" id="overlayBg" onclick="closeSidebar()"></div>
+<button class="hamburger" onclick="toggleSidebar()">☰</button>
+
+<div class="app">
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="logo">
+    <div class="logo-icon">🤖</div>
+    <div>
+      <div class="logo-text" id="t-bot-name">Bot Dashboard</div>
+      <div class="logo-sub" style="display:flex;align-items:center;gap:5px">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">...</span>
+      </div>
+    </div>
+  </div>
+  <nav class="nav" id="navMenu">
+    <div class="nav-item active" onclick="goPage('overview')" data-page="overview"><span class="icon">📊</span><span id="n-overview">نظرة عامة</span></div>
+    <div class="nav-item" onclick="goPage('controls')" data-page="controls"><span class="icon">🎮</span><span id="n-controls">التحكم</span></div>
+    <div class="nav-item" onclick="goPage('cookies')" data-page="cookies"><span class="icon">🍪</span><span id="n-cookies">الكوكيز</span></div>
+    <div class="nav-item" onclick="goPage('admins')" data-page="admins"><span class="icon">👥</span><span id="n-admins">المشرفون</span></div>
+    <div class="nav-item" onclick="goPage('automsg')" data-page="automsg"><span class="icon">📨</span><span id="n-automsg">رسائل تلقائية</span></div>
+    <div class="nav-item" onclick="goPage('logs')" data-page="logs"><span class="icon">📋</span><span id="n-logs">السجلات</span></div>
+    <div class="nav-item" onclick="goPage('broadcast')" data-page="broadcast"><span class="icon">📡</span><span id="n-broadcast">البث</span></div>
+    <div class="nav-item" onclick="goPage('devtools')" data-page="devtools"><span class="icon">🛠️</span><span id="n-devtools">أدوات المطور</span></div>
+    <div class="nav-item" onclick="goPage('config')" data-page="config"><span class="icon">⚙️</span><span id="n-config">الإعدادات</span></div>
+  </nav>
+  <div class="sidebar-footer">
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button class="icon-btn" onclick="toggleTheme()" title="Theme" id="themeBtn">🌙</button>
+      <button class="icon-btn" onclick="toggleLang()" title="Language" id="langBtn">🌐</button>
+      <button class="icon-btn" onclick="logout()" title="Logout">🔓</button>
+    </div>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="main">
+
+<!-- Overview -->
+<div class="page active" id="page-overview">
+  <div class="header-bar">
+    <div><div class="page-title" id="t-overview-title">نظرة عامة</div><div class="page-sub" id="t-overview-sub">حالة البوت والإحصائيات</div></div>
+  </div>
+  <div class="grid grid-3" style="margin-bottom:16px">
+    <div class="card stat"><div class="stat-icon">🤖</div><div class="stat-val" id="s-status">—</div><div class="stat-label" id="t-s1">حالة البوت</div></div>
+    <div class="card stat"><div class="stat-icon">⏱️</div><div class="stat-val" id="s-uptime">—</div><div class="stat-label" id="t-s2">وقت التشغيل</div></div>
+    <div class="card stat"><div class="stat-icon">💾</div><div class="stat-val" id="s-mem">—</div><div class="stat-label" id="t-s3">الذاكرة</div></div>
+  </div>
+  <div class="grid grid-2">
+    <div class="card">
+      <div class="card-title" id="t-bot-info">معلومات البوت</div>
+      <div class="form-group"><label id="t-prefix">البادئة</label><div class="code-box" id="i-prefix">/</div></div>
+      <div class="form-group"><label id="t-name">الاسم</label><div class="code-box" id="i-name">Bot</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title" id="t-quick">إجراءات سريعة</div>
+      <div class="switch-row">
+        <div class="switch-info"><h4 id="t-engine">المحرك</h4><p id="t-engine-sub">تشغيل/إيقاف المحرك</p></div>
+        <label class="toggle"><input type="checkbox" id="engineToggle" onchange="toggleEngine()"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+      </div>
+      <div style="margin-top:12px" id="t-engine-msg-label"><label>رسالة المحرك</label></div>
+      <input id="engineMsg" placeholder="مرحباً! 👋" style="margin-bottom:8px">
+      <input id="engineThreadID" placeholder="Thread ID المجموعة">
+      <button class="btn btn-primary btn-sm" style="margin-top:8px;width:100%" onclick="applyEngine()" id="t-apply-engine">تطبيق</button>
+    </div>
+  </div>
+</div>
+
+<!-- Controls -->
+<div class="page" id="page-controls">
+  <div class="page-title" id="t-controls-title">التحكم عن بُعد</div>
+  <div class="page-sub" id="t-controls-sub" style="margin-bottom:20px">إرسال رسائل وأوامر للمجموعات</div>
+  <div class="grid grid-2">
+    <div class="card">
+      <div class="card-title" id="t-send-msg">إرسال رسالة</div>
+      <div class="form-group"><label>Thread ID</label><input id="sendThread" placeholder="100012345678@g.us أو رقم المجموعة"></div>
+      <div class="form-group"><label id="t-message">الرسالة</label><textarea id="sendMsg" placeholder="اكتب الرسالة هنا..."></textarea></div>
+      <button class="btn btn-primary" onclick="sendMsg()" id="t-send">إرسال ✉️</button>
+      <div class="alert alert-success" id="send-ok"></div>
+      <div class="alert alert-error" id="send-err"></div>
+    </div>
+    <div class="card">
+      <div class="card-title" id="t-remote-cmd">أوامر سريعة</div>
+      <p style="font-size:12px;color:var(--text3);margin-bottom:12px" id="t-remote-hint">أرسل رسالة بادئة بـ / لتنفيذ أمر في مجموعة</p>
+      <div class="form-group"><label>Thread ID</label><input id="cmdThread" placeholder="معرف المجموعة"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="btn btn-ghost btn-sm" onclick="quickCmd('/ping')">/ping</button>
+        <button class="btn btn-ghost btn-sm" onclick="quickCmd('/محرك حالة')">/محرك حالة</button>
+        <button class="btn btn-ghost btn-sm" onclick="quickCmd('/رسائل حالة')">/رسائل حالة</button>
+        <button class="btn btn-ghost btn-sm" onclick="quickCmd('/قفل حالة')">/قفل حالة</button>
+        <button class="btn btn-ghost btn-sm" onclick="quickCmd('/سيرفر')">/سيرفر</button>
+      </div>
+      <div class="form-group"><label id="t-cmd">الأمر</label><input id="cmdInput" placeholder="/ping"></div>
+      <button class="btn btn-primary" onclick="sendCmd()" id="t-run">تشغيل</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cookies -->
+<div class="page" id="page-cookies">
+  <div class="page-title" id="t-cookies-title">إدارة الكوكيز</div>
+  <div class="page-sub" id="t-cookies-sub" style="margin-bottom:20px">تحديث جلسة البوت على فيسبوك</div>
+  <div class="card">
+    <div class="card-title" id="t-paste-cookies">الصق الكوكيز</div>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:12px" id="t-cookie-hint">صدّر الكوكيز من إضافة Cookie-Editor بصيغة JSON وألصقها أدناه</p>
+    <div class="form-group"><label>JSON Cookies</label><textarea id="cookieInput" style="min-height:180px;font-family:monospace;font-size:11px" placeholder='[{"key":"c_user","value":"...","domain":".facebook.com",...}]'></textarea></div>
+    <button class="btn btn-primary" onclick="saveCookies()" id="t-save-cookies">💾 حفظ الكوكيز</button>
+    <button class="btn btn-ghost" onclick="validateCookies()" style="margin-right:8px" id="t-validate">✅ تحقق</button>
+    <div class="alert alert-success" id="cookie-ok" style="margin-top:10px"></div>
+    <div class="alert alert-error" id="cookie-err" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<!-- Admins -->
+<div class="page" id="page-admins">
+  <div class="page-title" id="t-admins-title">إدارة المشرفين</div>
+  <div class="page-sub" id="t-admins-sub" style="margin-bottom:20px">إضافة وإزالة مشرفي البوت</div>
+  <div class="grid grid-2">
+    <div class="card">
+      <div class="card-title" id="t-add-admin">إضافة مشرف</div>
+      <div class="form-group"><label>Facebook ID</label><input id="adminID" placeholder="61588993301978"></div>
+      <button class="btn btn-primary" onclick="addAdmin()" id="t-add-btn">➕ إضافة</button>
+      <div class="alert alert-success" id="admin-ok" style="margin-top:8px"></div>
+      <div class="alert alert-error" id="admin-err" style="margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <div class="card-title" id="t-admin-list">قائمة المشرفين</div>
+      <div id="adminList"><div style="color:var(--text3);font-size:13px" id="t-loading">جاري التحميل...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Auto Messages -->
+<div class="page" id="page-automsg">
+  <div class="page-title" id="t-automsg-title">الرسائل التلقائية</div>
+  <div class="page-sub" id="t-automsg-sub" style="margin-bottom:20px">إدارة الرسائل المجدولة</div>
+  <div class="card">
+    <div class="card-title" id="t-msg-list">الرسائل النشطة</div>
+    <div id="autoMsgList"><div style="color:var(--text3);font-size:13px" id="t-no-msgs">لا توجد رسائل تلقائية</div></div>
+    <button class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="loadAutoMsgs()" id="t-refresh-msgs">🔄 تحديث</button>
+  </div>
+</div>
+
+<!-- Logs -->
+<div class="page" id="page-logs">
+  <div class="page-title" id="t-logs-title">سجلات البوت</div>
+  <div class="page-sub" id="t-logs-sub" style="margin-bottom:16px">مراقبة النشاط في الوقت الفعلي</div>
+  <div class="card">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+      <select id="logLevel" onchange="loadLogs()" style="width:auto;min-width:120px"><option value="" id="t-all">الكل</option><option value="INFO">INFO</option><option value="WARN">WARN</option><option value="ERROR">ERROR</option><option value="BOT">BOT</option><option value="OK">OK</option></select>
+      <button class="btn btn-ghost btn-sm" onclick="loadLogs()" id="t-refresh-logs">🔄 تحديث</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('logBox').innerHTML=''" id="t-clear-logs">🗑 مسح</button>
+      <label class="toggle" style="margin-right:auto"><input type="checkbox" id="autoRefresh" checked onchange="toggleAutoRefresh()"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+      <span style="font-size:12px;color:var(--text3)" id="t-auto-refresh">تحديث تلقائي</span>
+    </div>
+    <div class="log-box" id="logBox">جاري التحميل...</div>
+  </div>
+</div>
+
+<!-- Broadcast -->
+<div class="page" id="page-broadcast">
+  <div class="page-title" id="t-broadcast-title">البث الجماعي</div>
+  <div class="page-sub" id="t-broadcast-sub" style="margin-bottom:20px">إرسال رسالة لمجموعات متعددة</div>
+  <div class="card">
+    <div class="form-group"><label id="t-thread-ids">معرفات المجموعات (سطر لكل معرف)</label><textarea id="broadcastThreads" style="min-height:100px;font-family:monospace;font-size:12px" placeholder="123456789&#10;987654321&#10;111222333"></textarea></div>
+    <div class="form-group"><label id="t-bc-msg">الرسالة</label><textarea id="broadcastMsg" placeholder="اكتب الرسالة هنا..."></textarea></div>
+    <div class="form-group"><label id="t-delay-label">تأخير بين الرسائل (ثانية)</label><input type="number" id="broadcastDelay" value="2" min="1" max="30" style="width:120px"></div>
+    <button class="btn btn-primary" onclick="startBroadcast()" id="t-broadcast-btn">📡 بدء البث</button>
+    <div id="broadcastProgress" style="margin-top:12px;font-size:13px;color:var(--text2)"></div>
+  </div>
+</div>
+
+<!-- Dev Tools -->
+<div class="page" id="page-devtools">
+  <div class="page-title" id="t-devtools-title">أدوات المطور</div>
+  <div class="page-sub" id="t-devtools-sub" style="margin-bottom:20px">أدوات متقدمة للمطورين</div>
+  <div class="grid grid-2">
+    <div class="card">
+      <div class="card-title" id="t-api-test">اختبار API</div>
+      <div class="form-group"><label>Endpoint</label><select id="apiEndpoint" style="width:100%"><option>/dash/status</option><option>/dash/config</option><option>/dash/admins</option><option>/dash/logs</option><option>/dash/automsg</option></select></div>
+      <button class="btn btn-primary btn-sm" onclick="testApi()" id="t-test-btn">🔍 اختبار</button>
+      <div class="code-box" id="apiResult" style="margin-top:10px;max-height:200px;overflow:auto">النتيجة ستظهر هنا...</div>
+    </div>
+    <div class="card">
+      <div class="card-title" id="t-stats-title">إحصائيات</div>
+      <div id="statsBox" style="font-size:13px;color:var(--text2)">جاري التحميل...</div>
+    </div>
+    <div class="card">
+      <div class="card-title" id="t-env-title">معلومات البيئة</div>
+      <div class="code-box" id="envBox">جاري التحميل...</div>
+    </div>
+    <div class="card">
+      <div class="card-title" id="t-log-filter-title">فلترة السجلات المتقدمة</div>
+      <div class="form-group"><label id="t-search-label">بحث في السجلات</label><input id="logSearch" placeholder="كلمة أو عبارة للبحث..." oninput="filterLogs()"></div>
+      <div class="log-box" id="filteredLogs" style="height:200px">اكتب للبحث...</div>
+    </div>
+  </div>
+</div>
+
+<!-- Config -->
+<div class="page" id="page-config">
+  <div class="page-title" id="t-config-title">إعدادات البوت</div>
+  <div class="page-sub" id="t-config-sub" style="margin-bottom:20px">تعديل إعدادات البوت</div>
+  <div class="card">
+    <div class="form-group"><label id="t-prefix-label">البادئة (Prefix)</label><input id="cfgPrefix" value="/"></div>
+    <div class="form-group"><label id="t-botname-label">اسم البوت</label><input id="cfgBotName" value="Bot"></div>
+    <div class="form-group"><label id="t-token-label">رمز الدخول للوحة</label><input type="password" id="cfgToken" placeholder="اتركه فارغاً للإبقاء على الحالي"></div>
+    <div class="form-group"><label id="t-reconnect-label">تأخير إعادة الاتصال (ms)</label><input type="number" id="cfgReconnect" value="5000"></div>
+    <button class="btn btn-primary" onclick="saveConfig()" id="t-save-config">💾 حفظ التغييرات</button>
+    <div class="alert alert-success" id="cfg-ok" style="margin-top:10px"></div>
+    <div class="alert alert-error" id="cfg-err" style="margin-top:10px"></div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<!-- Bottom Nav -->
+<nav class="bottom-nav">
+  <div class="bnav-item active" onclick="goPage('overview')"><span class="icon">📊</span><span id="bn-ov">عامة</span></div>
+  <div class="bnav-item" onclick="goPage('controls')"><span class="icon">🎮</span><span id="bn-ctrl">تحكم</span></div>
+  <div class="bnav-item" onclick="goPage('logs')"><span class="icon">📋</span><span id="bn-logs">سجلات</span></div>
+  <div class="bnav-item" onclick="goPage('admins')"><span class="icon">👥</span><span id="bn-adm">مشرفون</span></div>
+  <div class="bnav-item" onclick="goPage('config')"><span class="icon">⚙️</span><span id="bn-cfg">إعدادات</span></div>
+</nav>
+
+<script>
+// ── State ─────────────────────────────────────────────────────
+let TOKEN = localStorage.getItem('dash_token') || '';
+let LANG  = localStorage.getItem('dash_lang')  || 'ar';
+let THEME = localStorage.getItem('dash_theme') || 'dark';
+let logInterval = null;
+let allLogs = [];
+
+const BASE = window.location.origin;
+
+// ── i18n ──────────────────────────────────────────────────────
+const T = {
+  ar:{
+    login:'🔐 تسجيل الدخول','login-sub':'أدخل رمز الدخول','token-label':'رمز الدخول',enter:'دخول',
+    'n-overview':'نظرة عامة','n-controls':'التحكم','n-cookies':'الكوكيز','n-admins':'المشرفون',
+    'n-automsg':'رسائل تلقائية','n-logs':'السجلات','n-broadcast':'البث','n-devtools':'أدوات المطور','n-config':'الإعدادات',
+    'overview-title':'نظرة عامة','overview-sub':'حالة البوت والإحصائيات',
+    's1':'حالة البوت','s2':'وقت التشغيل','s3':'الذاكرة',
+    'bot-info':'معلومات البوت',prefix:'البادئة',name:'الاسم',
+    quick:'إجراءات سريعة',engine:'المحرك','engine-sub':'تشغيل/إيقاف المحرك',
+    'apply-engine':'تطبيق','engine-msg-label':'رسالة المحرك',
+    'controls-title':'التحكم عن بُعد','controls-sub':'إرسال رسائل وأوامر للمجموعات',
+    'send-msg':'إرسال رسالة',message:'الرسالة',send:'إرسال ✉️',
+    'remote-cmd':'أوامر سريعة','remote-hint':'أرسل رسالة بادئة بـ / لتنفيذ أمر',cmd:'الأمر',run:'تشغيل',
+    'cookies-title':'إدارة الكوكيز','cookies-sub':'تحديث جلسة البوت',
+    'paste-cookies':'الصق الكوكيز','cookie-hint':'صدّر الكوكيز بصيغة JSON',
+    'save-cookies':'💾 حفظ الكوكيز',validate:'✅ تحقق',
+    'admins-title':'إدارة المشرفين','admins-sub':'إضافة وإزالة مشرفي البوت',
+    'add-admin':'إضافة مشرف','add-btn':'➕ إضافة','admin-list':'قائمة المشرفين',
+    'automsg-title':'الرسائل التلقائية','automsg-sub':'إدارة الرسائل المجدولة',
+    'msg-list':'الرسائل النشطة','no-msgs':'لا توجد رسائل تلقائية','refresh-msgs':'🔄 تحديث',
+    'logs-title':'سجلات البوت','logs-sub':'مراقبة النشاط في الوقت الفعلي',
+    all:'الكل','refresh-logs':'🔄 تحديث','clear-logs':'🗑 مسح','auto-refresh':'تحديث تلقائي',
+    'broadcast-title':'البث الجماعي','broadcast-sub':'إرسال رسالة لمجموعات متعددة',
+    'thread-ids':'معرفات المجموعات (سطر لكل معرف)','bc-msg':'الرسالة',
+    'delay-label':'تأخير بين الرسائل (ثانية)','broadcast-btn':'📡 بدء البث',
+    'devtools-title':'أدوات المطور','devtools-sub':'أدوات متقدمة',
+    'api-test':'اختبار API','test-btn':'🔍 اختبار',
+    'stats-title':'إحصائيات','env-title':'معلومات البيئة',
+    'log-filter-title':'فلترة السجلات','search-label':'بحث في السجلات',
+    'config-title':'إعدادات البوت','config-sub':'تعديل إعدادات البوت',
+    'prefix-label':'البادئة','botname-label':'اسم البوت',
+    'token-label2':'رمز الدخول للوحة','reconnect-label':'تأخير إعادة الاتصال (ms)',
+    'save-config':'💾 حفظ التغييرات',
+    'bot-name':'Bot Dashboard',loading:'جاري التحميل...',
+    online:'متصل ✅',offline:'غير متصل ❌',
+    'bn-ov':'عامة','bn-ctrl':'تحكم','bn-logs':'سجلات','bn-adm':'مشرفون','bn-cfg':'إعدادات',
+  },
+  en:{
+    login:'🔐 Login','login-sub':'Enter your dashboard token','token-label':'Access Token',enter:'Login',
+    'n-overview':'Overview','n-controls':'Controls','n-cookies':'Cookies','n-admins':'Admins',
+    'n-automsg':'Auto Messages','n-logs':'Logs','n-broadcast':'Broadcast','n-devtools':'Dev Tools','n-config':'Config',
+    'overview-title':'Overview','overview-sub':'Bot status and statistics',
+    's1':'Bot Status','s2':'Uptime','s3':'Memory',
+    'bot-info':'Bot Info',prefix:'Prefix',name:'Name',
+    quick:'Quick Actions',engine:'Engine','engine-sub':'Start/Stop engine',
+    'apply-engine':'Apply','engine-msg-label':'Engine Message',
+    'controls-title':'Remote Control','controls-sub':'Send messages and commands to groups',
+    'send-msg':'Send Message',message:'Message',send:'Send ✉️',
+    'remote-cmd':'Quick Commands','remote-hint':'Send / commands to any group',cmd:'Command',run:'Run',
+    'cookies-title':'Cookie Manager','cookies-sub':'Update bot Facebook session',
+    'paste-cookies':'Paste Cookies','cookie-hint':'Export cookies as JSON from Cookie-Editor',
+    'save-cookies':'💾 Save Cookies',validate:'✅ Validate',
+    'admins-title':'Admin Manager','admins-sub':'Add and remove bot admins',
+    'add-admin':'Add Admin','add-btn':'➕ Add','admin-list':'Admin List',
+    'automsg-title':'Auto Messages','automsg-sub':'Manage scheduled messages',
+    'msg-list':'Active Messages','no-msgs':'No auto messages','refresh-msgs':'🔄 Refresh',
+    'logs-title':'Bot Logs','logs-sub':'Real-time activity monitor',
+    all:'All','refresh-logs':'🔄 Refresh','clear-logs':'🗑 Clear','auto-refresh':'Auto refresh',
+    'broadcast-title':'Mass Broadcast','broadcast-sub':'Send a message to multiple groups',
+    'thread-ids':'Group IDs (one per line)','bc-msg':'Message',
+    'delay-label':'Delay between messages (seconds)','broadcast-btn':'📡 Start Broadcast',
+    'devtools-title':'Dev Tools','devtools-sub':'Advanced developer tools',
+    'api-test':'API Tester','test-btn':'🔍 Test',
+    'stats-title':'Statistics','env-title':'Environment Info',
+    'log-filter-title':'Advanced Log Filter','search-label':'Search logs',
+    'config-title':'Bot Config','config-sub':'Edit bot configuration',
+    'prefix-label':'Prefix','botname-label':'Bot Name',
+    'token-label2':'Dashboard Token','reconnect-label':'Reconnect Delay (ms)',
+    'save-config':'💾 Save Changes',
+    'bot-name':'Bot Dashboard',loading:'Loading...',
+    online:'Online ✅',offline:'Offline ❌',
+    'bn-ov':'Overview','bn-ctrl':'Controls','bn-logs':'Logs','bn-adm':'Admins','bn-cfg':'Config',
+  }
+};
+
+function t(key) { return (T[LANG] || T.ar)[key] || key; }
+
+function applyLang() {
+  const isAr = LANG === 'ar';
+  document.documentElement.lang = LANG;
+  document.documentElement.dir = isAr ? 'rtl' : 'ltr';
+  document.body.classList.toggle('ltr', !isAr);
+  document.getElementById('langBtn').textContent = isAr ? '🇺🇸' : '🇸🇦';
+  // Update all text nodes
+  const ids = ['t-login','t-login-sub','t-token-label','t-enter','n-overview','n-controls','n-cookies',
+    'n-admins','n-automsg','n-logs','n-broadcast','n-devtools','n-config','t-overview-title','t-overview-sub',
+    't-s1','t-s2','t-s3','t-bot-info','t-prefix','t-name','t-quick','t-engine','t-engine-sub','t-apply-engine',
+    't-engine-msg-label','t-controls-title','t-controls-sub','t-send-msg','t-message','t-send','t-remote-cmd',
+    't-remote-hint','t-cmd','t-run','t-cookies-title','t-cookies-sub','t-paste-cookies','t-cookie-hint',
+    't-save-cookies','t-validate','t-admins-title','t-admins-sub','t-add-admin','t-add-btn','t-admin-list',
+    't-automsg-title','t-automsg-sub','t-msg-list','t-no-msgs','t-refresh-msgs','t-logs-title','t-logs-sub',
+    't-all','t-refresh-logs','t-clear-logs','t-auto-refresh','t-broadcast-title','t-broadcast-sub',
+    't-thread-ids','t-bc-msg','t-delay-label','t-broadcast-btn','t-devtools-title','t-devtools-sub',
+    't-api-test','t-test-btn','t-stats-title','t-env-title','t-log-filter-title','t-search-label',
+    't-config-title','t-config-sub','t-prefix-label','t-botname-label','t-token-label','t-reconnect-label',
+    't-save-config','t-bot-name','t-loading','bn-ov','bn-ctrl','bn-logs','bn-adm','bn-cfg'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      const key = id.startsWith('t-') ? id.slice(2) : id;
+      el.textContent = t(key) || el.textContent;
+    }
+  });
+}
+
+function toggleLang() {
+  LANG = LANG === 'ar' ? 'en' : 'ar';
+  localStorage.setItem('dash_lang', LANG);
+  applyLang();
+}
+
+// ── Theme ─────────────────────────────────────────────────────
+function applyTheme() {
+  document.body.classList.toggle('light', THEME === 'light');
+  document.getElementById('themeBtn').textContent = THEME === 'dark' ? '☀️' : '🌙';
+}
+function toggleTheme() {
+  THEME = THEME === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('dash_theme', THEME);
+  applyTheme();
+}
+
+// ── Auth ──────────────────────────────────────────────────────
+function saveToken() {
+  const v = document.getElementById('tokenInput').value.trim();
+  if (!v) return;
+  TOKEN = v;
+  localStorage.setItem('dash_token', TOKEN);
+  document.getElementById('tokenModal').style.display = 'none';
+  initDashboard();
+}
+function logout() {
+  localStorage.removeItem('dash_token');
+  TOKEN = '';
+  document.getElementById('tokenModal').style.display = 'flex';
+}
+document.getElementById('tokenInput').addEventListener('keydown', e => { if (e.key === 'Enter') saveToken(); });
+
+// ── API ───────────────────────────────────────────────────────
+async function api(method, url, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json', 'x-token': TOKEN } };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(BASE + url, opts);
+  return r.json();
+}
+const GET  = url       => api('GET',  url);
+const POST = (url, b)  => api('POST', url, b);
+const DEL  = url       => api('DELETE', url);
+
+// ── Navigation ────────────────────────────────────────────────
+function goPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.bnav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id)?.classList.add('active');
+  document.querySelector('[data-page="' + id + '"]')?.classList.add('active');
+  closeSidebar();
+  if (id === 'admins')  loadAdmins();
+  if (id === 'logs')    loadLogs();
+  if (id === 'automsg') loadAutoMsgs();
+  if (id === 'config')  loadConfig();
+  if (id === 'devtools') loadDevTools();
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('overlayBg').classList.toggle('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlayBg').classList.remove('show');
+}
+
+// ── Status polling ────────────────────────────────────────────
+async function pollStatus() {
+  try {
+    const s = await GET('/dash/status');
+    const dot  = document.getElementById('statusDot');
+    const stxt = document.getElementById('statusText');
+    dot.classList.toggle('on', s.online);
+    stxt.textContent = s.online ? t('online') : t('offline');
+    document.getElementById('s-status').textContent  = s.online ? '🟢 ' + t('online') : '🔴 ' + t('offline');
+    document.getElementById('s-uptime').textContent  = fmtUptime(s.uptime);
+    document.getElementById('s-mem').textContent     = s.mem + ' MB';
+    document.getElementById('i-prefix').textContent  = s.prefix || '/';
+    document.getElementById('i-name').textContent    = s.botName || 'Bot';
+  } catch {}
+}
+
+function fmtUptime(s) {
+  if (!s) return '—';
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), ss = s%60;
+  return (h?h+'h ':'') + (m?m+'m ':'') + ss + 's';
+}
+
+// ── Engine ────────────────────────────────────────────────────
+async function toggleEngine() {
+  const on = document.getElementById('engineToggle').checked;
+  const threadID = document.getElementById('engineThreadID').value.trim();
+  await POST('/dash/engine', { action: on ? 'start' : 'stop', threadID });
+}
+async function applyEngine() {
+  const msg     = document.getElementById('engineMsg').value.trim();
+  const threadID= document.getElementById('engineThreadID').value.trim();
+  if (msg) await POST('/dash/engine', { message: msg, action: 'start', threadID });
+}
+
+// ── Send message ──────────────────────────────────────────────
+async function sendMsg() {
+  const threadID = document.getElementById('sendThread').value.trim();
+  const message  = document.getElementById('sendMsg').value.trim();
+  if (!threadID || !message) return showAlert('send-err', 'يجب تعبئة جميع الحقول');
+  const r = await POST('/dash/send', { threadID, message });
+  r.ok ? showAlert('send-ok', '✅ تم الإرسال') : showAlert('send-err', r.error);
+}
+function quickCmd(cmd) { document.getElementById('cmdInput').value = cmd; }
+async function sendCmd() {
+  const threadID = document.getElementById('cmdThread').value.trim();
+  const message  = document.getElementById('cmdInput').value.trim();
+  if (!threadID || !message) return;
+  const r = await POST('/dash/send', { threadID, message });
+  r.ok ? showAlert('send-ok', '✅ تم') : showAlert('send-err', r.error || 'خطأ');
+}
+
+// ── Cookies ───────────────────────────────────────────────────
+function validateCookies() {
+  const raw = document.getElementById('cookieInput').value.trim();
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) throw new Error('not array');
+    showAlert('cookie-ok', '✅ صالح — ' + arr.length + ' كوكي');
+  } catch (e) { showAlert('cookie-err', '❌ JSON غير صحيح: ' + e.message); }
+}
+async function saveCookies() {
+  const raw = document.getElementById('cookieInput').value.trim();
+  try {
+    const cookies = JSON.parse(raw);
+    if (!Array.isArray(cookies)) throw new Error('not array');
+    const r = await POST('/dash/cookies', { cookies });
+    r.ok ? showAlert('cookie-ok', '✅ تم الحفظ — ' + r.count + ' كوكي') : showAlert('cookie-err', r.error);
+  } catch (e) { showAlert('cookie-err', '❌ ' + e.message); }
+}
+
+// ── Admins ────────────────────────────────────────────────────
+async function loadAdmins() {
+  const r = await GET('/dash/admins');
+  const el = document.getElementById('adminList');
+  el.innerHTML = '';
+  if (r.superAdmins?.length) {
+    el.innerHTML += '<div style="font-size:11px;color:var(--text3);margin-bottom:6px">👑 Super Admins</div>';
+    r.superAdmins.forEach(id => {
+      el.innerHTML += `<div class="admin-item"><span class="admin-id">${id}</span><span class="badge badge-blue">Super</span></div>`;
+    });
+  }
+  if (r.runtimeAdmins?.length) {
+    el.innerHTML += '<div style="font-size:11px;color:var(--text3);margin:10px 0 6px">🔧 Runtime Admins</div>';
+    r.runtimeAdmins.forEach(id => {
+      el.innerHTML += `<div class="admin-item"><span class="admin-id">${id}</span><button class="btn btn-danger btn-sm" onclick="removeAdmin('${id}')">×</button></div>`;
+    });
+  }
+  if (!r.superAdmins?.length && !r.runtimeAdmins?.length)
+    el.innerHTML = '<div style="color:var(--text3);font-size:13px">' + t('no-msgs') + '</div>';
+}
+async function addAdmin() {
+  const id = document.getElementById('adminID').value.trim();
+  if (!id) return;
+  const r = await POST('/dash/admins/add', { id });
+  r.ok ? showAlert('admin-ok', '✅ تمت الإضافة') : showAlert('admin-err', r.error);
+  if (r.ok) { document.getElementById('adminID').value = ''; loadAdmins(); }
+}
+async function removeAdmin(id) {
+  const r = await POST('/dash/admins/remove', { id });
+  if (r.ok) loadAdmins();
+}
+
+// ── Auto Messages ─────────────────────────────────────────────
+async function loadAutoMsgs() {
+  const msgs = await GET('/dash/automsg');
+  const el = document.getElementById('autoMsgList');
+  if (!msgs.length) { el.innerHTML = '<div style="color:var(--text3);font-size:13px">' + t('no-msgs') + '</div>'; return; }
+  el.innerHTML = msgs.map(m => `
+    <div class="msg-row">
+      <span class="msg-id">#${m.id}</span>
+      <span class="msg-txt">${m.text}</span>
+      <span class="msg-time">~${fmtSecs(m.seconds)}</span>
+      <span class="badge ${m.enabled ? 'badge-green' : 'badge-red'}">${m.enabled ? '🟢' : '🔴'}</span>
+      <button class="btn btn-danger btn-sm" onclick="delMsg(${m.id})">🗑</button>
+    </div>`).join('');
+}
+function fmtSecs(s) {
+  if (s < 60) return s + 'ث'; if (s < 3600) return Math.floor(s/60) + 'م'; return Math.floor(s/3600) + 'س';
+}
+async function delMsg(id) {
+  await DEL('/dash/automsg/' + id);
+  loadAutoMsgs();
+}
+
+// ── Logs ──────────────────────────────────────────────────────
+async function loadLogs() {
+  const level = document.getElementById('logLevel').value;
+  const url   = '/dash/logs?n=200' + (level ? '&level=' + level : '');
+  const logs  = await GET(url);
+  allLogs = logs;
+  renderLogs(logs);
+}
+
+function renderLogs(logs) {
+  const box = document.getElementById('logBox');
+  if (!logs.length) { box.innerHTML = '<span style="color:var(--text3)">لا توجد سجلات</span>'; return; }
+  box.innerHTML = logs.map(l => {
+    const d = new Date(l.t);
+    const ts = d.toTimeString().slice(0,8);
+    return `<div class="log-line log-${l.level}"><span style="color:var(--text3)">${ts}</span> [${l.level}] ${escHtml(l.msg)}</div>`;
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+function filterLogs() {
+  const q = document.getElementById('logSearch').value.toLowerCase();
+  const el = document.getElementById('filteredLogs');
+  if (!q) { el.innerHTML = 'اكتب للبحث...'; return; }
+  const filtered = allLogs.filter(l => l.msg.toLowerCase().includes(q));
+  el.innerHTML = filtered.map(l =>
+    `<div class="log-line log-${l.level}">[${l.level}] ${escHtml(l.msg)}</div>`).join('');
+}
+
+let autoRefTimer = null;
+function toggleAutoRefresh() {
+  const on = document.getElementById('autoRefresh').checked;
+  if (on) autoRefTimer = setInterval(loadLogs, 3000);
+  else { clearInterval(autoRefTimer); autoRefTimer = null; }
+}
+
+// ── Broadcast ─────────────────────────────────────────────────
+async function startBroadcast() {
+  const threads  = document.getElementById('broadcastThreads').value.trim().split('\n').map(s=>s.trim()).filter(Boolean);
+  const message  = document.getElementById('broadcastMsg').value.trim();
+  const delay    = (parseInt(document.getElementById('broadcastDelay').value) || 2) * 1000;
+  const prog     = document.getElementById('broadcastProgress');
+  if (!threads.length || !message) return;
+  prog.textContent = 'جاري الإرسال...';
+  let ok = 0, fail = 0;
+  for (const tid of threads) {
+    const r = await POST('/dash/send', { threadID: tid, message });
+    if (r.ok) ok++; else fail++;
+    prog.textContent = `✅ ${ok} ❌ ${fail} / ${threads.length}`;
+    await new Promise(res => setTimeout(res, delay));
+  }
+  prog.textContent = `✅ اكتمل! نجح: ${ok} | فشل: ${fail}`;
+}
+
+// ── Dev Tools ─────────────────────────────────────────────────
+async function testApi() {
+  const ep  = document.getElementById('apiEndpoint').value;
+  const box = document.getElementById('apiResult');
+  try {
+    const r = await GET(ep);
+    box.textContent = JSON.stringify(r, null, 2);
+  } catch (e) { box.textContent = 'Error: ' + e.message; }
+}
+
+async function loadDevTools() {
+  const s = await GET('/dash/status').catch(() => ({}));
+  document.getElementById('statsBox').innerHTML = `
+    <div style="display:grid;gap:8px">
+      <div>🟢 <b>الحالة:</b> ${s.online ? 'متصل' : 'غير متصل'}</div>
+      <div>⏱ <b>وقت التشغيل:</b> ${fmtUptime(s.uptime)}</div>
+      <div>💾 <b>الذاكرة:</b> ${s.mem || '—'} MB</div>
+      <div>🔧 <b>البادئة:</b> ${s.prefix || '—'}</div>
+    </div>`;
+  document.getElementById('envBox').textContent =
+    'Node: ' + (s.node || '—') + '\nPlatform: ' + (s.platform || '—') + '\nUptime: ' + fmtUptime(s.uptime);
+}
+
+// ── Config ────────────────────────────────────────────────────
+async function loadConfig() {
+  const c = await GET('/dash/config').catch(() => ({}));
+  if (c.prefix)        document.getElementById('cfgPrefix').value    = c.prefix;
+  if (c.botName)       document.getElementById('cfgBotName').value   = c.botName;
+  if (c.reconnectDelay)document.getElementById('cfgReconnect').value = c.reconnectDelay;
+}
+async function saveConfig() {
+  const body = {
+    prefix:        document.getElementById('cfgPrefix').value.trim(),
+    botName:       document.getElementById('cfgBotName').value.trim(),
+    reconnectDelay:parseInt(document.getElementById('cfgReconnect').value) || 5000,
+  };
+  const tok = document.getElementById('cfgToken').value.trim();
+  if (tok) body.dashboardToken = tok;
+  const r = await POST('/dash/config', body);
+  r.ok ? showAlert('cfg-ok', '✅ تم الحفظ') : showAlert('cfg-err', r.error);
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function showAlert(id, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 4000);
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Init ──────────────────────────────────────────────────────
+function initDashboard() {
+  pollStatus();
+  loadLogs();
+  setInterval(pollStatus, 5000);
+  autoRefTimer = setInterval(loadLogs, 3000);
+}
+
+window.addEventListener('load', () => {
+  applyTheme();
+  applyLang();
+  if (!TOKEN) {
+    document.getElementById('tokenModal').style.display = 'flex';
+  } else {
+    document.getElementById('tokenModal').style.display = 'none';
+    initDashboard();
+  }
+});
+</script>
+</body></html>
