@@ -4,6 +4,9 @@ const path        = require('path');
 const config      = require('./config.json');
 const log         = require('./utils/logger');
 const admin       = require('./utils/admin');
+const rl          = require('./utils/rateLimiter');
+const antiban     = require('./utils/antiban');
+const { jitter }  = require('./utils/actionQueue');
 
 const engine    = require('./commands/engine');
 const lock      = require('./commands/lock');
@@ -15,16 +18,44 @@ const automsg   = require('./commands/automsg');
 const ping      = require('./commands/ping');
 const server    = require('./commands/server');
 const help      = require('./commands/help');
-const abad        = require('./commands/abad');
-const torture     = require('./commands/torture');
-const autoAccept  = require('./commands/autoAccept');
-const AM          = require('./utils/autoMessages');
-const web         = require('./webServer');
+const abad      = require('./commands/abad');
+const torture   = require('./commands/torture');
+const autoAccept = require('./commands/autoAccept');
+const AM        = require('./utils/autoMessages');
+const web       = require('./webServer');
 
 const APPSTATE = path.join(__dirname, 'appstate.json');
 const P        = config.prefix || '/';
 let reconnects = 0;
 let currentApi = null;
+
+// ── MQTT Watchdog — يرصد صمت MQTT ويعيد الاتصال تلقائياً ──────────
+const MQTT_TIMEOUT = 8 * 60 * 1000; // 8 دقائق بدون رسالة = مشكلة
+let lastMqttEvent  = Date.now();
+let watchdogTimer  = null;
+
+function resetWatchdog() {
+  lastMqttEvent = Date.now();
+}
+
+function startWatchdog() {
+  if (watchdogTimer) clearInterval(watchdogTimer);
+  watchdogTimer = setInterval(() => {
+    const silence = Date.now() - lastMqttEvent;
+    if (silence > MQTT_TIMEOUT && currentApi) {
+      log.warn('⚠️ MQTT صامت منذ ' + Math.round(silence / 60000) + ' دقيقة — إعادة اتصال...');
+      web.pushLog('WARN', 'MQTT silent ' + Math.round(silence / 60000) + 'min — reconnecting');
+      currentApi = null;
+      scheduleReconnect();
+    }
+  }, 2 * 60 * 1000);
+}
+
+function stopWatchdog() {
+  if (watchdogTimer) { clearInterval(watchdogTimer); watchdogTimer = null; }
+}
+
+// ──────────────────────────────────────────────────────────────────────
 
 function rand(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
 function wait(ms)   { return new Promise(r => setTimeout(r, ms)); }
@@ -39,7 +70,7 @@ function saveState(api) {
   try { fs.writeFileSync(APPSTATE, JSON.stringify(api.getAppState(), null, 2)); } catch {}
 }
 
-// ── Web dashboard ────────────────────────────────────────────
+// ── Web dashboard ─────────────────────────────────────────────────────
 web.init({
   get api()    { return currentApi; },
   get online() { return !!currentApi; },
@@ -47,13 +78,27 @@ web.init({
   adminMod:    admin,
   engineMod:   engine,
   autoMsgMod:  AM,
+  antibanMod:  antiban,
 });
 web.start();
 
-// ── Command router ───────────────────────────────────────────
+// ── Cooldown بالثواني لكل أمر ──────────────────────────────────────────
+const COOLDOWNS = config.cooldowns || {};
+function getCooldown(cmd) {
+  return COOLDOWNS[cmd] ?? COOLDOWNS['default'] ?? 5;
+}
+
+// ── Command router ────────────────────────────────────────────────────
 async function onMessage(event, api) {
+  resetWatchdog();
   const body = (event.body || '').trim();
   if (!body.startsWith(P)) return;
+
+  // إذا كان البوت موقوفاً مؤقتاً بسبب نظام مكافحة الحظر
+  if (antiban.isPaused()) {
+    const rem = antiban.pausedFor();
+    return api.sendMessage('⏸ البوت في وضع الحماية. ارجع بعد ' + rem + 'ث.', event.threadID);
+  }
 
   const text  = body.slice(P.length).trim();
   const parts = text.split(/\s+/);
@@ -64,12 +109,20 @@ async function onMessage(event, api) {
   log.bot('[' + cmd + '] من ' + senderID);
   web.pushLog('BOT', cmd + ' from ' + senderID);
 
-  await wait(rand(400, 1200));
+  // ── تحقق من الـ Cooldown ──────────────────────────────────────────
+  const secs  = getCooldown(parts[0]) || getCooldown(cmd);
+  const { allowed, remaining } = rl.check(senderID, cmd, secs);
+  if (!allowed) {
+    return api.sendMessage('⏳ انتظر ' + remaining + 'ث قبل استخدام هذا الأمر مجدداً.', threadID);
+  }
+
+  // تأخير إنساني قبل كل رد
+  await wait(jitter(400, 1200));
 
   const adminOnly = () => api.sendMessage('❌ ليس لديك صلاحية.', threadID);
   const superOnly = () => api.sendMessage('❌ فقط سوبر أدمن.', threadID);
 
-  // ── للجميع ──────────────────────────────────
+  // ── للجميع ───────────────────────────────────────────────────────
   if (cmd === 'ping' || cmd === 'بينج')
     return ping.handle(event, api);
 
@@ -82,7 +135,7 @@ async function onMessage(event, api) {
   if (cmd === 'ابتيم' || cmd === 'uptime')
     return server.handle(event, api, 'uptime');
 
-  // ── مشرف ────────────────────────────────────
+  // ── مشرف ─────────────────────────────────────────────────────────
   if (cmd === 'محرك' || cmd === 'engine') {
     if (!admin.isAdmin(senderID)) return adminOnly();
     return engine.handle(event, api, args);
@@ -108,7 +161,7 @@ async function onMessage(event, api) {
     return torture.handle(event, api, args);
   }
 
-  // ── سوبر أدمن ───────────────────────────────
+  // ── سوبر أدمن ────────────────────────────────────────────────────
   if (cmd === 'رفع' || cmd === 'promote') {
     if (!admin.isSuperAdmin(senderID)) return superOnly();
     return promote.handle(event, api, args);
@@ -121,9 +174,31 @@ async function onMessage(event, api) {
     if (!admin.isSuperAdmin(senderID)) return superOnly();
     return abad.handle(event, api, args);
   }
+
+  // ── أوامر الحماية (سوبر أدمن فقط) ───────────────────────────────
+  if (cmd === 'حماية' || cmd === 'antiban') {
+    if (!admin.isSuperAdmin(senderID)) return superOnly();
+    const sub = (args[0] || '').toLowerCase();
+    const s   = antiban.stats();
+    if (sub === 'ايقاف' || sub === 'وقف') {
+      antiban.pause(3 * 60 * 1000);
+      return api.sendMessage('⏸ تم إيقاف البوت مؤقتاً لمدة 3 دقائق.', threadID);
+    }
+    if (sub === 'رفع' || sub === 'استمر') {
+      antiban.resume();
+      return api.sendMessage('▶️ رُفع الإيقاف.', threadID);
+    }
+    return api.sendMessage(
+      '🛡 حالة الحماية:\n' +
+      '▪ الوضع: ' + (s.paused ? '⏸ موقوف مؤقتاً' : '▶️ يعمل') +
+      (s.paused ? '\n▪ ينتهي بعد: ' + antiban.pausedFor() + 'ث' : '') +
+      '\n▪ أخطاء مرصودة: ' + s.errCount +
+      '\n\n/حماية ايقاف — وقف احترازي\n/حماية رفع — رفع الإيقاف',
+      threadID);
+  }
 }
 
-// ── Bot startup ──────────────────────────────────────────────
+// ── Bot startup ───────────────────────────────────────────────────────
 async function startBot() {
   const state = loadState();
   if (!state) {
@@ -136,18 +211,30 @@ async function startBot() {
   log.info('جاري تسجيل الدخول...');
 
   login({
-    appState: state,
-    logLevel: 'error',
-    online: true, selfListen: false, listenEvents: true,
-    autoMarkRead: false, autoMarkDelivery: false,
-    userAgent: 'Mozilla/5.0 (Linux; Android 11; SM-A325F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.119 Mobile Safari/537.36',
+    appState:          state,
+    logLevel:          'error',
+    online:            config.online !== false,
+    selfListen:        false,
+    listenEvents:      true,
+    autoMarkRead:      config.autoMarkRead      || false,
+    autoMarkDelivery:  config.autoMarkDelivery  || false,
+    userAgent: 'Mozilla/5.0 (Linux; Android 13; SM-A546B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.119 Mobile Safari/537.36',
   }, (err, api) => {
     if (err) {
       const msg = err.error || err.message || JSON.stringify(err);
       log.error('فشل تسجيل الدخول: ' + msg);
       web.pushLog('ERROR', 'Login failed: ' + msg);
-      if (String(msg).includes('checkpoint'))
-        return log.error('⚠️ الحساب محتاج تحقق. جدّد الكوكيز.');
+
+      // رصد أنواع الأخطاء
+      const type = antiban.classify(msg);
+      if (type === 'ban') {
+        log.error('🚨 إشارة حظر — توقف. جدّد الكوكيز.');
+        return;
+      }
+      if (String(msg).includes('checkpoint')) {
+        log.error('⚠️ الحساب محتاج تحقق. جدّد الكوكيز.');
+        return;
+      }
       return scheduleReconnect();
     }
 
@@ -157,10 +244,13 @@ async function startBot() {
     automsg.setApi(api);
     server.setStartTime(Date.now());
     saveState(api);
+    resetWatchdog();
+    startWatchdog();
 
     log.success('البوت يعمل! البادئة: ' + P);
     web.pushLog('OK', 'Bot online. Prefix: ' + P);
 
+    // حفظ الجلسة كل 10 دقائق
     setInterval(() => saveState(api), 10 * 60 * 1000);
 
     // قبول طلبات المراسلة المعلقة عند بدء التشغيل
@@ -171,10 +261,15 @@ async function startBot() {
         const msg = JSON.stringify(listenErr);
         log.error('خطأ استماع: ' + msg);
         web.pushLog('ERROR', 'Listen error: ' + msg);
+
+        antiban.report(msg, 'listenMqtt');
         currentApi = null;
+        stopWatchdog();
         return scheduleReconnect();
       }
       if (!event) return;
+
+      resetWatchdog();
 
       // قبول تلقائي عند الإضافة لمجموعة
       if (event.type === 'event' && event.logMessageType === 'log:subscribe') {
@@ -189,6 +284,7 @@ async function startBot() {
         onMessage(event, api).catch(e => {
           log.error('onMessage: ' + e.message);
           web.pushLog('ERROR', 'onMessage: ' + e.message);
+          antiban.report(e, 'onMessage');
         });
       }
     });
@@ -197,18 +293,33 @@ async function startBot() {
 
 async function scheduleReconnect() {
   currentApi = null;
+  stopWatchdog();
   reconnects++;
-  const delay = Math.min(reconnects * 5000, 30000) + rand(0, 3000);
+  const delay = Math.min(reconnects * 5000, 45000) + rand(0, 5000);
   log.warn('إعادة اتصال بعد ' + (delay/1000).toFixed(1) + 'ث (محاولة ' + reconnects + ')');
   web.pushLog('WARN', 'Reconnecting in ' + Math.round(delay/1000) + 's');
   await wait(delay);
   startBot();
 }
 
-process.on('uncaughtException',  e => { log.error('Uncaught: ' + e.message); web.pushLog('ERROR', e.message); });
-process.on('unhandledRejection', e => { const m = e?.message || JSON.stringify(e); log.error('Unhandled: ' + m); web.pushLog('ERROR', m); });
+process.on('uncaughtException',  e => {
+  log.error('Uncaught: ' + e.message);
+  web.pushLog('ERROR', e.message);
+  antiban.report(e, 'uncaughtException');
+});
+process.on('unhandledRejection', e => {
+  const m = e?.message || JSON.stringify(e);
+  log.error('Unhandled: ' + m);
+  web.pushLog('ERROR', m);
+  antiban.report(e, 'unhandledRejection');
+});
 
 log.info('='.repeat(45));
 log.info('  ' + config.botName + ' — Messenger Bot');
 log.info('='.repeat(45));
+
+// إنشاء مجلد data إذا لم يكن موجوداً
+const dataDir = path.join(__dirname, 'data');
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+
 startBot();
