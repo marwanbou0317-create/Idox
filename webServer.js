@@ -15,12 +15,13 @@ function pushLog(level, msg) {
 }
 
 let _state = {
-  api:       null,
-  online:    false,
-  startTime: Date.now(),
-  adminMod:  null,
-  engineMod: null,
-  autoMsgMod:null,
+  api:        null,
+  online:     false,
+  startTime:  Date.now(),
+  adminMod:   null,
+  engineMod:  null,
+  autoMsgMod: null,
+  antibanMod: null,
 };
 
 function init(state) { Object.assign(_state, state); }
@@ -32,7 +33,7 @@ function start() {
 
   const cfg = () => JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 
-  // ── Auth middleware ──────────────────────────────────────────
+  // ── Auth middleware ───────────────────────────────────────────────
   const auth = (req, res, next) => {
     const tok = req.headers['x-token'] || req.query.token;
     const expected = cfg().dashboardToken || 'bot123';
@@ -40,19 +41,21 @@ function start() {
     next();
   };
 
-  // ── Status ───────────────────────────────────────────────────
+  // ── Status ────────────────────────────────────────────────────────
   app.get('/dash/status', (req, res) => {
     const c = cfg();
+    const ab = _state.antibanMod;
     res.json({
       online:   _state.online,
       uptime:   Math.floor((Date.now() - _state.startTime) / 1000),
       prefix:   c.prefix,
       botName:  c.botName,
       mem:      Math.round(process.memoryUsage().rss / 1024 / 1024),
+      antiban:  ab ? ab.stats() : null,
     });
   });
 
-  // ── Logs ─────────────────────────────────────────────────────
+  // ── Logs ──────────────────────────────────────────────────────────
   app.get('/dash/logs', auth, (req, res) => {
     const { level, n = 100 } = req.query;
     let logs = recentLogs.slice(-Number(n));
@@ -60,7 +63,7 @@ function start() {
     res.json(logs);
   });
 
-  // ── Config read / write ──────────────────────────────────────
+  // ── Config read / write ───────────────────────────────────────────
   app.get('/dash/config', auth, (req, res) => {
     try {
       const c = cfg(); delete c.dashboardToken;
@@ -72,13 +75,13 @@ function start() {
     try {
       const cur = cfg();
       const safe = { ...cur, ...req.body };
-      safe.dashboardToken = cur.dashboardToken;      // protect token
+      safe.dashboardToken = cur.dashboardToken;
       fs.writeFileSync(CONFIG_PATH, JSON.stringify(safe, null, 2));
       res.json({ ok: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  // ── Cookies ──────────────────────────────────────────────────
+  // ── Cookies ───────────────────────────────────────────────────────
   app.post('/dash/cookies', auth, (req, res) => {
     try {
       const { cookies } = req.body;
@@ -89,7 +92,7 @@ function start() {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  // ── Admins ───────────────────────────────────────────────────
+  // ── Admins ────────────────────────────────────────────────────────
   app.get('/dash/admins', auth, (req, res) => {
     const m = _state.adminMod;
     res.json({ superAdmins: cfg().superAdmins || [], runtimeAdmins: m ? m.getAdmins() : [] });
@@ -109,7 +112,7 @@ function start() {
     res.json({ ok: true });
   });
 
-  // ── Send message (remote control) ────────────────────────────
+  // ── Send message (remote control) ─────────────────────────────────
   app.post('/dash/send', auth, (req, res) => {
     const { threadID, message } = req.body;
     if (!threadID || !message) return res.status(400).json({ error: 'Missing threadID or message' });
@@ -121,7 +124,7 @@ function start() {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  // ── Engine control ───────────────────────────────────────────
+  // ── Engine control ────────────────────────────────────────────────
   app.get('/dash/engine', auth, (req, res) => {
     const e = _state.engineMod;
     if (!e) return res.json({ available: false });
@@ -132,14 +135,14 @@ function start() {
     const e = _state.engineMod;
     if (!e) return res.status(503).json({ error: 'Engine not available' });
     const { action, message, seconds } = req.body;
-    if (action === 'start')   e.remoteStart(req.body.threadID);
-    if (action === 'stop')    e.remoteStop();
+    if (action === 'start')    e.remoteStart(req.body.threadID);
+    if (action === 'stop')     e.remoteStop();
     if (message !== undefined) e.setMessage(message);
     if (seconds  !== undefined) e.setSeconds(Number(seconds));
     res.json({ ok: true });
   });
 
-  // ── Auto messages ────────────────────────────────────────────
+  // ── Auto messages ─────────────────────────────────────────────────
   app.get('/dash/automsg', auth, (req, res) => {
     const a = _state.autoMsgMod;
     res.json(a ? a.list() : []);
@@ -151,12 +154,28 @@ function start() {
     res.json({ ok: a.remove(Number(req.params.id)) });
   });
 
-  // ── Bot restart hint ─────────────────────────────────────────
+  // ── Anti-ban control ──────────────────────────────────────────────
+  app.get('/dash/antiban', auth, (req, res) => {
+    const ab = _state.antibanMod;
+    if (!ab) return res.json({ available: false });
+    res.json({ available: true, ...ab.stats(), pausedFor: ab.pausedFor() });
+  });
+
+  app.post('/dash/antiban', auth, (req, res) => {
+    const ab = _state.antibanMod;
+    if (!ab) return res.status(503).json({ error: 'Not available' });
+    const { action, ms } = req.body;
+    if (action === 'pause')  ab.pause(ms || 3 * 60 * 1000);
+    if (action === 'resume') ab.resume();
+    res.json({ ok: true });
+  });
+
+  // ── Bot restart hint ──────────────────────────────────────────────
   app.post('/dash/restart', auth, (req, res) => {
     res.json({ ok: true, msg: 'يتطلب إعادة تشغيل البوت يدوياً على المنصة.' });
   });
 
-  // ── Serve dashboard ──────────────────────────────────────────
+  // ── Serve dashboard ───────────────────────────────────────────────
   app.get('/', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'index.html')));
   app.get('/dash', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'index.html')));
 
