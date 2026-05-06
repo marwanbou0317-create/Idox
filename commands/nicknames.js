@@ -1,16 +1,18 @@
 const { setNick, getThread } = require('../_nick_helper');
 const log = require('../utils/logger');
-
-const DELAY = 3500;
-const BATCH = 5;
-const BATCH_DELAY = 12000;
+const cfg = require('../config.json');
 
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+function jitter(a, b) { return Math.floor(a + Math.random() * (b - a)); }
+
+const DELAY       = cfg.antiban?.nickDelay       || 3000;
+const BATCH       = cfg.antiban?.nickBatchSize   || 5;
+const BATCH_DELAY = cfg.antiban?.nickBatchDelay  || 12000;
 
 async function setNickRetry(api, nick, tid, uid) {
   for (let i = 0; i < 3; i++) {
     if (await setNick(api, nick, tid, uid)) return true;
-    if (i < 2) await wait(4000 * (i + 1));
+    if (i < 2) await wait(jitter(4000, 7000));
   }
   return false;
 }
@@ -37,13 +39,19 @@ async function handle(event, api, args) {
 
   let done = 0, fail = 0;
   for (let i = 0; i < members.length; i++) {
-    if (i > 0 && i % BATCH === 0) await wait(BATCH_DELAY);
-    else if (i > 0) await wait(DELAY);
+    // تأخير بين الدفعات
+    if (i > 0 && i % BATCH === 0) {
+      await wait(jitter(BATCH_DELAY, BATCH_DELAY + 3000));
+    } else if (i > 0) {
+      await wait(jitter(DELAY - 500, DELAY + 1000));
+    }
 
     if (await setNickRetry(api, nick, threadID, members[i])) {
       done++;
       if (done % 10 === 0) api.sendMessage('⏳ ' + done + '/' + members.length, threadID);
-    } else fail++;
+    } else {
+      fail++;
+    }
   }
 
   api.sendMessage(
