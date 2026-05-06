@@ -4,19 +4,27 @@ const log = require('../utils/logger');
 
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-function apiCall(fn, ...args) {
-  return new Promise(resolve => {
-    let done = false;
-    const fin = ok => { if (!done) { done = true; resolve(ok); } };
-    setTimeout(() => fin(false), 10000);
-    try {
-      const r = fn(...args, err => fin(!err));
-      if (r && typeof r.then === 'function') r.then(() => fin(true)).catch(() => fin(false));
-    } catch { fin(false); }
-  });
+async function gcRemove(api, uid, threadID) {
+  try {
+    const r = await api.gcmember('remove', uid, threadID);
+    return r && r.type !== 'error_gc';
+  } catch (e) {
+    log.error('gcRemove: ' + (e?.message || e));
+    return false;
+  }
 }
 
-const sessions = new Set(); // threadID → active torture
+async function gcAdd(api, uid, threadID) {
+  try {
+    const r = await api.gcmember('add', uid, threadID);
+    return r && r.type !== 'error_gc';
+  } catch (e) {
+    log.error('gcAdd: ' + (e?.message || e));
+    return false;
+  }
+}
+
+const sessions = new Set();
 
 async function handle(event, api, args) {
   const { threadID, senderID, messageReply } = event;
@@ -27,7 +35,6 @@ async function handle(event, api, args) {
   if (sessions.has(threadID))
     return api.sendMessage('⚠️ جلسة تعذيب نشطة بالفعل في هذه المجموعة.', threadID);
 
-  // تحديد الهدف: رد على رسالة أو منشن
   let targetID = null, targetName = 'المستهدف';
 
   if (messageReply?.senderID) {
@@ -40,8 +47,8 @@ async function handle(event, api, args) {
 
   if (!targetID)
     return api.sendMessage(
-      '❗ رد على رسالة شخص أو: /تعذيب @شخص\n\n' +
-      'البوت سيطرده ويضيفه 10 مرات متتالية.', threadID);
+      '❗ رد على رسالة شخص أو: /تعذيب @شخص\n\nالبوت سيطرده ويضيفه 10 مرات متتالية.',
+      threadID);
 
   if (admin.isAdmin(targetID))
     return api.sendMessage('🚫 لا يمكن تعذيب مشرف.', threadID);
@@ -54,8 +61,7 @@ async function handle(event, api, args) {
 
   let done = 0;
   for (let i = 1; i <= ROUNDS; i++) {
-    // طرد
-    const kicked = await apiCall(api.removeUserFromGroup.bind(api), targetID, threadID);
+    const kicked = await gcRemove(api, targetID, threadID);
     if (!kicked) {
       api.sendMessage('❌ فشل الطرد في الجولة ' + i + '. توقف.', threadID);
       break;
@@ -65,12 +71,10 @@ async function handle(event, api, args) {
     done++;
     await wait(2500);
 
-    // إعادة (ما عدا الجولة الأخيرة)
     if (i < ROUNDS) {
-      const added = await apiCall(api.addUserToGroup.bind(api), targetID, threadID);
-      if (!added) {
+      const added = await gcAdd(api, targetID, threadID);
+      if (!added)
         api.sendMessage('⚠️ [' + i + '] لم يتم الإضافة — ربما رفض الدعوة. استمر بالطرد فقط.', threadID);
-      }
       await wait(2000);
     }
   }
