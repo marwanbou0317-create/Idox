@@ -1,7 +1,11 @@
 {
   "prefix": "/",
   "botName": "Bot",
-  "superAdmins": ["61588993301978", "61588940413980"],
+  "superAdmins": [
+    "61588993301978",
+    "61588940413980"
+  ],
+  "dashboardToken": "bot123",
   "reconnectDelay": 5000,
   "maxReconnectAttempts": 0,
   "listenEvents": true,
