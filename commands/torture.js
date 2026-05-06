@@ -1,6 +1,8 @@
-const admin = require('../utils/admin');
+const admin  = require('../utils/admin');
 const parseMentions = require('../_mentions');
-const log = require('../utils/logger');
+const log    = require('../utils/logger');
+const { jitter } = require('../utils/actionQueue');
+const cfg    = require('../config.json');
 
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -55,9 +57,11 @@ async function handle(event, api, args) {
 
   sessions.add(threadID);
 
-  const ROUNDS = 10;
+  const ROUNDS     = 10;
+  const BASE_DELAY = cfg.antiban?.tortureDelay || 3500;
+
   api.sendMessage('😈 بدأت جلسة التعذيب!\n🎯 الهدف: ' + targetName + '\n🔄 ' + ROUNDS + ' جولات', threadID);
-  await wait(1000);
+  await wait(jitter(1500, 2500));
 
   let done = 0;
   for (let i = 1; i <= ROUNDS; i++) {
@@ -69,13 +73,17 @@ async function handle(event, api, args) {
 
     api.sendMessage('☠️ [' + i + '/' + ROUNDS + '] تم طرد ' + targetName + ' — تعذيب!', threadID);
     done++;
-    await wait(2500);
+
+    // تأخير إنساني بين الطرد والإضافة
+    await wait(jitter(BASE_DELAY, BASE_DELAY + 1500));
 
     if (i < ROUNDS) {
       const added = await gcAdd(api, targetID, threadID);
       if (!added)
         api.sendMessage('⚠️ [' + i + '] لم يتم الإضافة — ربما رفض الدعوة. استمر بالطرد فقط.', threadID);
-      await wait(2000);
+
+      // تأخير قبل الجولة التالية — متغير لتبدو طبيعية
+      await wait(jitter(BASE_DELAY - 500, BASE_DELAY + 2000));
     }
   }
 
