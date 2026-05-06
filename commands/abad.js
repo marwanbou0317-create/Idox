@@ -1,6 +1,7 @@
-const admin = require('../utils/admin');
-const log   = require('../utils/logger');
+const admin  = require('../utils/admin');
+const log    = require('../utils/logger');
 const config = require('../config.json');
+const { jitter } = require('../utils/actionQueue');
 
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -39,9 +40,9 @@ async function handle(event, api, args) {
   const info = await getThread(api, threadID);
   if (!info) return api.sendMessage('❌ فشل جلب معلومات المجموعة.', threadID);
 
-  const members  = info.participantIDs || [];
+  const members   = info.participantIDs || [];
   const rawAdmins = info.adminIDs || [];
-  const fbAdmins = rawAdmins.map(a => String(a.id || a));
+  const fbAdmins  = rawAdmins.map(a => String(a.id || a));
 
   let botID = '';
   try { botID = String(api.getCurrentUserID()); } catch {}
@@ -59,12 +60,17 @@ async function handle(event, api, args) {
 
   api.sendMessage('☢️ سيُطرد ' + targets.length + ' عضو...', threadID);
 
+  const BASE = config.antiban?.abadDelay || 3000;
   let kicked = 0, failed = 0;
+
   for (const uid of targets) {
     const ok = await gcRemove(api, uid, threadID);
     if (ok) kicked++; else failed++;
-    await wait(2000 + Math.random() * 1000);
-    if (kicked % 5 === 0 && kicked > 0)
+
+    // تأخير إنساني متغير بين كل طرد
+    await wait(jitter(BASE, BASE + 1500));
+
+    if (kicked > 0 && kicked % 5 === 0)
       api.sendMessage('☢️ تقدّم: طُرد ' + kicked + '/' + targets.length, threadID);
   }
 
