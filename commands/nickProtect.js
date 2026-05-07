@@ -11,9 +11,9 @@ async function handle(event, api, args) {
     const list = protect.listProtected(threadID);
     if (!list.length)
       return api.sendMessage('📋 لا توجد كنيات محمية في هذه المجموعة.', threadID);
-    const lines = list.map(([uid, nick]) => '▪ ' + uid + ': "' + (nick || '(فارغة)') + '"').join('
+    const lines = list.map(([uid]) => '▪ ' + uid).join('
 ');
-    return api.sendMessage('🔒 الكنيات المحمية:
+    return api.sendMessage('🔒 الأعضاء ذوو الكنيات المحمية:
 ' + lines, threadID);
   }
 
@@ -42,16 +42,14 @@ async function handle(event, api, args) {
     const info = await getThread(api, threadID);
     const currentNick = info?.nicknames?.[id] || '';
     protect.protect(threadID, id, currentNick);
-    return api.sendMessage(
-      '🔒 تم تثبيت كنية ' + name + ' على: "' + (currentNick || '(فارغة)') + '"',
-      threadID);
+    return api.sendMessage('🔒 تم تثبيت كنية ' + name + '.', threadID);
   }
 
   try { await api.nickname(raw, threadID, id); } catch (e) {
     log.error('nickProtect set: ' + e.message);
   }
   protect.protect(threadID, id, raw);
-  return api.sendMessage('🔒 تم تثبيت كنية ' + name + ': "' + raw + '"', threadID);
+  return api.sendMessage('🔒 تم تثبيت كنية ' + name + '.', threadID);
 }
 
 module.exports = { handle };
