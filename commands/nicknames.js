@@ -63,7 +63,7 @@ async function handle(event, api, args) {
   api.sendMessage(
     '✅ اكتمل!
 ' +
-    (isReset ? '🗑 مُسح: ' + done : '✏️ "' + nick + '" لـ ' + done) +
+    (isReset ? '🗑 مُسحت الكنيات: ' + done : '✏️ تم التعيين لـ ' + done) +
     (skipped ? '
 🔒 محمي (تجاهل): ' + skipped : '') +
     (fail ? '
