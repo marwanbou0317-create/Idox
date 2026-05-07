@@ -25,6 +25,10 @@
     "nicknames": 20,
     "كنية":     10,
     "nickname":  10,
+    "تثبيت":    10,
+    "nickprotect": 10,
+    "اسم":      10,
+    "groupname": 10,
     "رسائل":     8,
     "automsg":   8
   },
