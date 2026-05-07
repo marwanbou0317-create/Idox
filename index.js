@@ -7,24 +7,26 @@ const admin       = require('./utils/admin');
 const rl          = require('./utils/rateLimiter');
 const antiban     = require('./utils/antiban');
 const { jitter }  = require('./utils/actionQueue');
-const nickProtectUtils = require('./utils/nickProtect');
+const nickProtectUtils     = require('./utils/nickProtect');
+const groupNameProtectUtils = require('./utils/groupNameProtect');
 
-const engine     = require('./commands/engine');
-const lock       = require('./commands/lock');
-const nickname   = require('./commands/nickname');
-const nicknames  = require('./commands/nicknames');
+const engine      = require('./commands/engine');
+const lock        = require('./commands/lock');
+const nickname    = require('./commands/nickname');
+const nicknames   = require('./commands/nicknames');
 const nickProtect = require('./commands/nickProtect');
-const promote    = require('./commands/promote');
-const demote     = require('./commands/demote');
-const automsg    = require('./commands/automsg');
-const ping       = require('./commands/ping');
-const server     = require('./commands/server');
-const help       = require('./commands/help');
-const abad       = require('./commands/abad');
-const torture    = require('./commands/torture');
-const autoAccept = require('./commands/autoAccept');
-const AM         = require('./utils/autoMessages');
-const web        = require('./webServer');
+const groupProtect = require('./commands/groupProtect');
+const promote     = require('./commands/promote');
+const demote      = require('./commands/demote');
+const automsg     = require('./commands/automsg');
+const ping        = require('./commands/ping');
+const server      = require('./commands/server');
+const help        = require('./commands/help');
+const abad        = require('./commands/abad');
+const torture     = require('./commands/torture');
+const autoAccept  = require('./commands/autoAccept');
+const AM          = require('./utils/autoMessages');
+const web         = require('./webServer');
 
 const APPSTATE = path.join(__dirname, 'appstate.json');
 const P        = config.prefix || '/';
@@ -144,6 +146,10 @@ async function onMessage(event, api) {
   if (cmd === 'تثبيت' || cmd === 'nickprotect') {
     if (!admin.isAdmin(senderID)) return adminOnly();
     return nickProtect.handle(event, api, args);
+  }
+  if (cmd === 'اسم' || cmd === 'groupname') {
+    if (!admin.isAdmin(senderID)) return adminOnly();
+    return groupProtect.handle(event, api, args);
   }
   if (cmd === 'رسائل' || cmd === 'automsg') {
     if (!admin.isAdmin(senderID)) return adminOnly();
@@ -285,6 +291,27 @@ async function startBot() {
                 }
               }, 1500);
             }
+          }
+        }
+      }
+
+      // ── حماية اسم المجموعة — استعادة الاسم عند تغييره ──────────
+      if (event.type === 'event' &&
+          (event.logMessageType === 'log:thread-name' ||
+           (event.logMessageData && 'name' in event.logMessageData))) {
+        const tid = event.threadID;
+        if (groupNameProtectUtils.isProtected(tid)) {
+          const savedName = groupNameProtectUtils.getProtected(tid);
+          const newName   = event.logMessageData?.name || '';
+          if (newName !== savedName) {
+            setTimeout(async () => {
+              try {
+                await api.setTitle(savedName, tid);
+                log.info('groupProtect: استُعيد اسم المجموعة في ' + tid);
+              } catch (e) {
+                log.error('groupProtect restore: ' + e.message);
+              }
+            }, 1500);
           }
         }
       }
