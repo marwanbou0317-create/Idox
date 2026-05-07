@@ -42,7 +42,7 @@ async function handle(event, api, args) {
     }
     return api.sendMessage(
       '✅ اكتمل!
-' + (isReset ? '🗑 مُسح: ' : '✏️ "' + nick + '" لـ ') + done +
+' + (isReset ? '🗑 مُسحت الكنيات: ' : '✏️ تم التعيين لـ ') + done +
       (skipped ? '
 🔒 محمي (تجاهل): ' + skipped : '') +
       (fail ? '
@@ -68,7 +68,7 @@ async function handle(event, api, args) {
 
   const ok = await setNickRetry(api, nick, threadID, id);
   api.sendMessage(
-    ok ? (isReset ? '✅ مُسحت كنية ' + name : '✅ كنية ' + name + ': "' + nick + '"')
+    ok ? (isReset ? '✅ مُسحت كنية ' + name : '✅ تم تعيين كنية ' + name)
        : '❌ فشل تغيير الكنية. راجع لوق البوت للسبب.',
     threadID);
 }
