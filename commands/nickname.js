@@ -1,6 +1,7 @@
 const { setNick, getThread } = require('../_nick_helper');
 const parseMentions = require('../_mentions');
-const log = require('../utils/logger');
+const protect       = require('../utils/nickProtect');
+const log           = require('../utils/logger');
 
 const DELAY = 3500; const BATCH = 5; const BATCH_DELAY = 12000;
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -29,8 +30,9 @@ async function handle(event, api, args) {
 
     const members = info.participantIDs;
     api.sendMessage('⏳ ' + members.length + ' عضو...', threadID);
-    let done = 0, fail = 0;
+    let done = 0, fail = 0, skipped = 0;
     for (let i = 0; i < members.length; i++) {
+      if (protect.isProtected(threadID, members[i])) { skipped++; continue; }
       if (i > 0 && i % BATCH === 0) await wait(BATCH_DELAY);
       else if (i > 0) await wait(DELAY);
       if (await setNickRetry(api, nick, threadID, members[i])) {
@@ -39,19 +41,30 @@ async function handle(event, api, args) {
       } else fail++;
     }
     return api.sendMessage(
-      '✅ اكتمل!\n' + (isReset ? '🗑 مُسح: ' : '✏️ "' + nick + '" لـ ') + done +
-      (fail ? '\n❌ فشل: ' + fail : ''), threadID);
+      '✅ اكتمل!
+' + (isReset ? '🗑 مُسح: ' : '✏️ "' + nick + '" لـ ') + done +
+      (skipped ? '
+🔒 محمي (تجاهل): ' + skipped : '') +
+      (fail ? '
+❌ فشل: ' + fail : ''), threadID);
   }
 
   const mentions = parseMentions(event.mentions);
   if (!mentions.length)
-    return api.sendMessage('📌 الاستخدام:\n/كنية @شخص [كنية]\n/كنية @شخص reset\n/كنية الكل [كنية|reset]', threadID);
+    return api.sendMessage('📌 الاستخدام:
+/كنية @شخص [كنية]
+/كنية @شخص reset
+/كنية الكل [كنية|reset]', threadID);
 
   const { id, name } = mentions[0];
-  const nameWords = name.trim().split(/\s+/).filter(Boolean).length;
+  const nameWords = name.trim().split(/s+/).filter(Boolean).length;
   const raw       = args.slice(nameWords).join(' ').trim();
   const isReset   = !raw || raw === 'reset' || raw === 'مسح';
   const nick      = isReset ? '' : raw;
+
+  if (protect.isProtected(threadID, id))
+    return api.sendMessage('🔒 كنية ' + name + ' محمية ولا يمكن تغييرها.
+استخدم /تثبيت @شخص إلغاء لرفع الحماية.', threadID);
 
   const ok = await setNickRetry(api, nick, threadID, id);
   api.sendMessage(
