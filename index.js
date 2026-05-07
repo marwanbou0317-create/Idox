@@ -1,3 +1,4 @@
+4a1f5c98229a9a573ea9ed63da75919ca3dccd67
 const { login }   = require('ws3-fca');
 const fs          = require('fs');
 const path        = require('path');
@@ -186,17 +187,11 @@ async function onMessage(event, api) {
       return api.sendMessage('▶️ رُفع الإيقاف.', threadID);
     }
     return api.sendMessage(
-      '🛡 حالة الحماية:
-' +
+      '🛡 حالة الحماية:\n' +
       '▪ الوضع: ' + (s.paused ? '⏸ موقوف مؤقتاً' : '▶️ يعمل') +
-      (s.paused ? '
-▪ ينتهي بعد: ' + antiban.pausedFor() + 'ث' : '') +
-      '
-▪ أخطاء مرصودة: ' + s.errCount +
-      '
-
-/حماية ايقاف — وقف احترازي
-/حماية رفع — رفع الإيقاف',
+      (s.paused ? '\n▪ ينتهي بعد: ' + antiban.pausedFor() + 'ث' : '') +
+      '\n▪ أخطاء مرصودة: ' + s.errCount +
+      '\n\n/حماية ايقاف — وقف احترازي\n/حماية رفع — رفع الإيقاف',
       threadID);
   }
 }
