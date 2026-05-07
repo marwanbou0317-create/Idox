@@ -1,6 +1,7 @@
 const { setNick, getThread } = require('../_nick_helper');
-const log = require('../utils/logger');
-const cfg = require('../config.json');
+const protect       = require('../utils/nickProtect');
+const log           = require('../utils/logger');
+const cfg           = require('../config.json');
 
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 function jitter(a, b) { return Math.floor(a + Math.random() * (b - a)); }
@@ -25,7 +26,11 @@ async function handle(event, api, args) {
 
   if (!raw)
     return api.sendMessage(
-      '📌 الاستخدام:\n/كنيات [نص] — نفس الكنية للجميع\n/كنيات reset — مسح الكنيات\n\nمثال: /كنيات VIP ⭐',
+      '📌 الاستخدام:
+/كنيات [نص] — نفس الكنية للجميع
+/كنيات reset — مسح الكنيات
+
+مثال: /كنيات VIP ⭐',
       threadID);
 
   api.sendMessage('⏳ جاري جلب الأعضاء...', threadID);
@@ -37,9 +42,10 @@ async function handle(event, api, args) {
   const members = info.participantIDs;
   api.sendMessage('⏳ ' + members.length + ' عضو — جاري المعالجة...', threadID);
 
-  let done = 0, fail = 0;
+  let done = 0, fail = 0, skipped = 0;
   for (let i = 0; i < members.length; i++) {
-    // تأخير بين الدفعات
+    if (protect.isProtected(threadID, members[i])) { skipped++; continue; }
+
     if (i > 0 && i % BATCH === 0) {
       await wait(jitter(BATCH_DELAY, BATCH_DELAY + 3000));
     } else if (i > 0) {
@@ -55,9 +61,13 @@ async function handle(event, api, args) {
   }
 
   api.sendMessage(
-    '✅ اكتمل!\n' +
+    '✅ اكتمل!
+' +
     (isReset ? '🗑 مُسح: ' + done : '✏️ "' + nick + '" لـ ' + done) +
-    (fail ? '\n❌ فشل: ' + fail : ''),
+    (skipped ? '
+🔒 محمي (تجاهل): ' + skipped : '') +
+    (fail ? '
+❌ فشل: ' + fail : ''),
     threadID);
 }
 
