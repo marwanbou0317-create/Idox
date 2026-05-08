@@ -2,12 +2,10 @@
 const log = require('../utils/logger');
 
 let botApi = null;
-const activity = new Set(); // مشترك بين المحركين
+const activity = new Set();
 
-function setApi(api)           { botApi = api; }
-function markActivity(tid)     { activity.add(String(tid)); }
-
-function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+function setApi(api)       { botApi = api; }
+function markActivity(tid) { activity.add(String(tid)); }
 
 // ── مصنع المحركات ────────────────────────────────────────────
 function makeEngine(name, smartMode) {
@@ -25,9 +23,8 @@ function makeEngine(name, smartMode) {
   };
 
   function getDelay() {
-    if (st.isRandom) {
+    if (st.isRandom)
       return (st.minSec + Math.random() * (st.maxSec - st.minSec)) * 1000;
-    }
     const base = st.seconds * 1000;
     return Math.round(base * 0.8 + Math.random() * base * 0.4);
   }
@@ -38,9 +35,7 @@ function makeEngine(name, smartMode) {
     st.nextAt = Date.now() + delay;
     setTimeout(() => {
       if (!st.on || gen !== myGen || !botApi || !st.thread) return;
-      if (smartMode && !activity.has(st.thread)) {
-        loop(myGen); return;
-      }
+      if (smartMode && !activity.has(st.thread)) { loop(myGen); return; }
       activity.delete(st.thread);
       st.lastSent = Date.now();
       st.nextAt   = null;
@@ -73,7 +68,7 @@ function makeEngine(name, smartMode) {
 const normal = makeEngine('NormalEngine', false);
 const smart  = makeEngine('SmartEngine',  true);
 
-// ── أمر /محرك (متوافق مع الإصدار القديم يعمل على المحرك العادي) ──
+// ── تنسيق الوقت ──────────────────────────────────────────────
 function fmtSec(s) {
   if (!s) return '—';
   if (s < 60)   return s + 'ث';
@@ -81,6 +76,7 @@ function fmtSec(s) {
   return Math.floor(s / 3600) + 'س';
 }
 
+// ── أمر /محرك (يعمل على المحرك العادي — للتوافق) ─────────────
 function handle(event, api, args) {
   const { threadID } = event;
   const sub = (args[0] || '').toLowerCase();
@@ -90,7 +86,8 @@ function handle(event, api, args) {
     normal.start(threadID);
     const ns = normal.getState();
     return api.sendMessage(
-      '🟢 المحرك العادي يعمل!\n⏱ كل ~' + fmtSec(ns.seconds) + ' (±20%)\n💬 ' + (ns.message || '(لم تُضبط رسالة)'), threadID);
+      '🟢 المحرك العادي يعمل!\n⏱ كل ~' + fmtSec(ns.seconds) + ' (±20%)\n💬 ' + (ns.message || '(لم تُضبط رسالة)'),
+      threadID);
   }
 
   if (sub === 'رسالة' || sub === 'msg') {
@@ -103,7 +100,7 @@ function handle(event, api, args) {
 
   if (sub === 'وقت' || sub === 'time') {
     const s = parseInt(args[1]);
-    if (isNaN(s) || s < 10) return api.sendMessage('❗ الحد الأدنى 10ث\nمثال: /محرك وقت 30', threadID);
+    if (isNaN(s) || s < 10) return api.sendMessage('❗ الحد الأدنى 10ث. مثال: /محرك وقت 30', threadID);
     normal.setTime(s);
     return api.sendMessage('✅ الوقت: ~' + fmtSec(s) + ' (±20%)', threadID);
   }
@@ -116,19 +113,16 @@ function handle(event, api, args) {
 
   if (sub === 'تشغيل' || sub === 'on') {
     if (normal.isOn()) return api.sendMessage('⚠️ المحرك العادي يعمل بالفعل.', threadID);
-    normal.start(threadID);
-    return api.sendMessage('🟢 المحرك العادي يعمل!', threadID);
+    normal.start(threadID); return api.sendMessage('🟢 المحرك العادي يعمل!', threadID);
   }
 
   if (sub === 'إيقاف' || sub === 'ايقاف' || sub === 'off') {
     if (!normal.isOn()) return api.sendMessage('⚠️ المحرك العادي متوقف بالفعل.', threadID);
-    normal.stop();
-    return api.sendMessage('🔴 المحرك العادي متوقف.', threadID);
+    normal.stop(); return api.sendMessage('🔴 المحرك العادي متوقف.', threadID);
   }
 
   if (sub === 'حالة' || sub === 'status') {
-    const ns = normal.getState();
-    const ss = smart.getState();
+    const ns = normal.getState(), ss = smart.getState();
     return api.sendMessage(
       '📊 المحركات:\n' +
       '📍 العادي: ' + (ns.on ? '🟢 يعمل' : '🔴 متوقف') +
@@ -138,15 +132,11 @@ function handle(event, api, args) {
   }
 
   return api.sendMessage(
-    '/محرك — تشغيل/إيقاف العادي\n' +
-    '/محرك رسالة [نص]\n' +
-    '/محرك وقت [ثواني]\n' +
-    '/محرك الذكي — تشغيل/إيقاف الذكي\n' +
-    '/محرك حالة\n\n' +
-    '💡 للتحكم الكامل استخدم /قائمة', threadID);
+    '/محرك — تشغيل/إيقاف العادي\n/محرك رسالة [نص]\n/محرك وقت [ثواني]\n' +
+    '/محرك الذكي — تشغيل/إيقاف الذكي\n/محرك حالة\n\n💡 للتحكم الكامل استخدم /قائمة', threadID);
 }
 
-// ── exports ────────────────────────────────────────────────────
+// ── صادرات التوافق مع الداشبورد ──────────────────────────────
 function getState() {
   const ns = normal.getState();
   return { on: ns.on, message: ns.message, seconds: ns.seconds, smart: smart.isOn(), thread: ns.thread };
