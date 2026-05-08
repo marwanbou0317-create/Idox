@@ -170,6 +170,57 @@ function start() {
     res.json({ ok: true });
   });
 
+  // ── Pending message requests ──────────────────────────────────────
+  app.get('/dash/pending', auth, async (req, res) => {
+    if (!_state.api || !_state.online)
+      return res.status(503).json({ error: 'البوت غير متصل' });
+    try {
+      const autoAccept = require('./commands/autoAccept');
+      const list = await autoAccept.getPendingList(_state.api);
+      res.json(list);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/dash/pending/accept', auth, async (req, res) => {
+    const { threadID } = req.body;
+    if (!threadID) return res.status(400).json({ error: 'Missing threadID' });
+    if (!_state.api || !_state.online)
+      return res.status(503).json({ error: 'البوت غير متصل' });
+    try {
+      const autoAccept = require('./commands/autoAccept');
+      const r = await autoAccept.acceptOne(_state.api, threadID);
+      res.json(r);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/dash/pending/reject', auth, async (req, res) => {
+    const { threadID } = req.body;
+    if (!threadID) return res.status(400).json({ error: 'Missing threadID' });
+    if (!_state.api || !_state.online)
+      return res.status(503).json({ error: 'البوت غير متصل' });
+    try {
+      const autoAccept = require('./commands/autoAccept');
+      const r = await autoAccept.rejectOne(_state.api, threadID);
+      res.json(r);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/dash/pending/accept-all', auth, async (req, res) => {
+    if (!_state.api || !_state.online)
+      return res.status(503).json({ error: 'البوت غير متصل' });
+    try {
+      const autoAccept = require('./commands/autoAccept');
+      const list = await autoAccept.getPendingList(_state.api);
+      let accepted = 0, failed = 0;
+      for (const t of list) {
+        const r = await autoAccept.acceptOne(_state.api, t.threadID);
+        if (r.ok) accepted++; else failed++;
+        await new Promise(x => setTimeout(x, 2000));
+      }
+      res.json({ ok: true, accepted, failed, total: list.length });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
   // ── Bot restart hint ──────────────────────────────────────────────
   app.post('/dash/restart', auth, (req, res) => {
     res.json({ ok: true, msg: 'يتطلب إعادة تشغيل البوت يدوياً على المنصة.' });
