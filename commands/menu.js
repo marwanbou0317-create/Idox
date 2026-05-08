@@ -1,9 +1,9 @@
 // القائمة التفاعلية الرقمية — 14 خياراً مع نظام جلسات
-const engine      = require('./engine');
+const engine       = require('./engine');
 const groupProtect = require('../utils/groupNameProtect');
 const nickProtect  = require('../utils/nickProtect');
 const parseMentions = require('../_mentions');
-const { getThread, setNick } = require('../_nick_helper');
+const { getThread } = require('../_nick_helper');
 const log = require('../utils/logger');
 
 // ── معرّف البوت (يُضبط بعد تسجيل الدخول) ─────────────────────
@@ -18,7 +18,9 @@ function sKey(tid, sid) { return tid + ':' + sid; }
 
 function clearExpired() {
   const now = Date.now();
-  for (const [k, s] of sessions) { if (now - s.ts > TTL) sessions.delete(k); }
+  const expired = [];
+  for (const [k, s] of sessions) { if (now - s.ts > TTL) expired.push(k); }
+  expired.forEach(k => sessions.delete(k));
 }
 
 function hasSession(threadID, senderID) {
@@ -36,58 +38,69 @@ function fmtSec(s) {
 function fmtAgo(ts) {
   if (!ts) return '—';
   const s = Math.floor((Date.now() - ts) / 1000);
-  if (s < 0) return '—';
-  return 'منذ ' + s + 'ث';
+  return s < 0 ? '—' : 'منذ ' + s + 'ث';
 }
 function fmtIn(ts) {
   if (!ts) return '—';
   const s = Math.floor((ts - Date.now()) / 1000);
-  if (s <= 0) return 'الآن';
-  return 'خلال ' + s + 'ث';
+  return s <= 0 ? 'الآن' : 'خلال ' + s + 'ث';
 }
 function fmtTime(st) {
   if (st.isRandom) return '🎲 ' + st.minSec + 's-' + st.maxSec + 's';
   return fmtSec(st.seconds);
 }
 
-// ── بناء نص القائمة ──────────────────────────────────────────
-async function buildMenu(threadID) {
-  const ns = engine.normal.getState();
-  const ss = engine.smart.getState();
+// ── بناء نص القائمة (يجلب اسم الغروب من API) ─────────────────
+async function buildMenu(threadID, api) {
+  const ns  = engine.normal.getState();
+  const ss  = engine.smart.getState();
   const sep = '━━━━━━━━━━━━━━━';
+
+  // جلب معلومات الغروب
+  let groupName = null;
+  if (api) {
+    try {
+      const info = await getThread(api, threadID);
+      if (info) groupName = info.threadName || info.name || null;
+    } catch {}
+  }
 
   const gnLocked      = groupProtect.isProtected(threadID);
   const gnName        = gnLocked ? groupProtect.getProtected(threadID) : null;
   const botNickLocked = _botID ? nickProtect.isProtected(threadID, _botID) : false;
   const botNick       = (botNickLocked && _botID) ? nickProtect.getProtected(threadID, _botID) : null;
 
+  // ── رأس الرسالة: قفل كنية البوت ──────────────────────────────
   let header = '';
   if (botNickLocked) {
     header = '🔒 تم قفل كنية البوت على:\n"' + (botNick || '(فارغة)') + '"\n\n' +
              '⚡ أي تغيير سيُعاد تلقائياً\n(لإيقاف القفل: اختار 12 ثم اكتب ايقاف)\n\n';
   }
 
-  let groupInfo = '';
-  if (gnLocked)      groupInfo += '\n🔒 اسم مقفول: "' + gnName + '"';
-  if (botNickLocked) groupInfo += '\n🔒 كنية مقفولة (بوت): "' + (botNick || '') + '"';
+  // ── معلومات الغروب ────────────────────────────────────────────
+  let groupSection = '';
+  if (groupName)     groupSection += '👥 ' + groupName + '\n';
+  groupSection += '🆔 ' + threadID + '\n';
+  if (gnLocked)      groupSection += '🔒 اسم مقفول: "' + gnName + '"\n';
+  if (botNickLocked) groupSection += '🔒 كنية مقفولة (بوت): "' + (botNick || '') + '"';
 
+  // ── حالة المحركين ─────────────────────────────────────────────
   const nSt   = ns.on ? '🟢 شغّال' : '🔴 متوقف';
   const sSt   = ss.on ? '🟢 شغّال' : '⚫ متوقف';
-  const nTime = ns.message ? fmtTime(ns) : '—';
-  const sTime = ss.message ? fmtTime(ss) : '—';
+  const nTime = fmtTime(ns);
+  const sTime = fmtTime(ss);
 
   let nDetail = '   📝 "' + (ns.message || 'لم تُضبط') + '" · ⏱ ' + nTime;
   if (ns.on) nDetail += '\n   آخر إرسال: ' + fmtAgo(ns.lastSent) + '  |  التالي: ' + fmtIn(ns.nextAt);
-
   let sDetail = '   📝 "' + (ss.message || 'لم تُضبط') + '" · ⏱ ' + sTime;
 
   return (
     header +
+    groupSection + '\n' +
     sep + '\n' +
     '📍 المحرك العادي: ' + nSt + '\n' + nDetail + '\n\n' +
     '📍 المحرك الذكي: ' + sSt + '\n' + sDetail + '\n' +
-    groupInfo +
-    '\n' + sep + '\n' +
+    sep + '\n' +
     '1 - تفعيل المحرك العادي\n' +
     '2 - إيقاف المحرك العادي\n' +
     '3 - ضبط رسالة المحرك العادي\n' +
@@ -112,8 +125,10 @@ async function show(event, api) {
   clearExpired();
   const { threadID, senderID } = event;
   try {
-    const menu = await buildMenu(threadID);
-    api.sendMessage(menu, threadID);
+    const menuText = await buildMenu(threadID, api);
+    await new Promise((res, rej) =>
+      api.sendMessage(menuText, threadID, err => err ? rej(err) : res())
+    );
     sessions.set(sKey(threadID, senderID), { step: 'menu', ts: Date.now() });
   } catch (e) {
     log.error('menu.show: ' + e.message);
@@ -126,29 +141,25 @@ function parseTime(raw) {
   const s = (raw || '').trim().toLowerCase();
   if (!s) return null;
 
-  // عشوائي مخصص: r20-60
   const rCustom = s.match(/^r(\d+)-(\d+)$/);
   if (rCustom) {
     const min = parseInt(rCustom[1]), max = parseInt(rCustom[2]);
     return min >= 5 && max > min ? { random: true, min, max } : null;
   }
 
-  // عشوائي افتراضي
   if (s === 'r' || s === 'عشوائي') return { random: true, min: 25, max: 45 };
 
-  // دقائق: 5m أو 5د
   if (/^[\d.]+[mمد]$/.test(s)) {
     const v = parseFloat(s);
     return !isNaN(v) && v >= 1 ? { sec: Math.round(v * 60) } : null;
   }
 
-  // ثواني: 30s أو 30
   const v = parseFloat(s.replace(/s$/, ''));
   if (!isNaN(v) && v >= 10) return { sec: Math.round(v) };
   return null;
 }
 
-// ── معالجة الجلسة (الرسائل غير الأوامر) ─────────────────────
+// ── معالجة الجلسة ─────────────────────────────────────────────
 async function handleSession(event, api) {
   clearExpired();
   const { threadID, senderID, body, mentions, messageReply } = event;
@@ -158,99 +169,79 @@ async function handleSession(event, api) {
 
   const text = (body || '').trim();
 
-  // ── إغلاق ───────────────────────────────────────────────────
+  // إغلاق القائمة
   if (text === 'اغلاق' || text === 'إغلاق') {
     sessions.delete(k);
     api.sendMessage('❌ تم إغلاق القائمة.', threadID);
     return true;
   }
 
-  session.ts = Date.now(); // تجديد انتهاء الصلاحية
+  session.ts = Date.now();
 
-  // ════════════════════════════════════════════════════════════
-  // الخطوة الرئيسية: انتظار رقم 1-14
-  // ════════════════════════════════════════════════════════════
+  // ══ الخطوة الرئيسية: انتظار رقم 1-14 ════════════════════════
   if (session.step === 'menu') {
     const num = parseInt(text);
-    if (isNaN(num) || num < 1 || num > 14) return false; // ليس خياراً من القائمة
+    if (isNaN(num) || num < 1 || num > 14) return false;
 
     switch (num) {
-
-      // ── 1: تفعيل المحرك العادي ─────────────────────────────
       case 1:
         engine.normal.start(threadID);
         sessions.delete(k);
         api.sendMessage('🟢 تم تفعيل المحرك العادي!', threadID);
         return true;
 
-      // ── 2: إيقاف المحرك العادي ─────────────────────────────
       case 2:
         engine.normal.stop();
         sessions.delete(k);
         api.sendMessage('🔴 تم إيقاف المحرك العادي.', threadID);
         return true;
 
-      // ── 3: رسالة المحرك العادي ─────────────────────────────
       case 3:
         session.step = 'set-msg-normal';
         api.sendMessage('📝 أرسل الرسالة الجديدة للمحرك العادي:', threadID);
         return true;
 
-      // ── 4: وقت المحرك العادي ───────────────────────────────
       case 4:
         session.step = 'set-time-normal';
         api.sendMessage(
-          '⏱ أرسل الوقت:\n' +
-          '• رقم = ثواني (مثل: 30)\n' +
-          '• 30s أو 5m = ثواني/دقائق\n' +
-          '• r = عشوائي افتراضي (25-45ث)\n' +
-          '• r20-60 = نطاق مخصص بالثواني', threadID);
+          '⏱ أرسل الوقت:\n• رقم = ثواني (مثل: 30)\n• 30s أو 5m\n• r = عشوائي (25-45ث)\n• r20-60 = نطاق مخصص',
+          threadID);
         return true;
 
-      // ── 5: تفعيل المحرك الذكي ─────────────────────────────
       case 5:
         engine.smart.start(threadID);
         sessions.delete(k);
         api.sendMessage('🧠 تم تفعيل المحرك الذكي!\nيرسل فقط عند وجود نشاط في الغروب.', threadID);
         return true;
 
-      // ── 6: إيقاف المحرك الذكي ─────────────────────────────
       case 6:
         engine.smart.stop();
         sessions.delete(k);
         api.sendMessage('⚫ تم إيقاف المحرك الذكي.', threadID);
         return true;
 
-      // ── 7: رسالة المحرك الذكي ─────────────────────────────
       case 7:
         session.step = 'set-msg-smart';
         api.sendMessage('📝 أرسل الرسالة الجديدة للمحرك الذكي:', threadID);
         return true;
 
-      // ── 8: وقت المحرك الذكي ───────────────────────────────
       case 8:
         session.step = 'set-time-smart';
         api.sendMessage(
-          '⏱ أرسل الوقت:\n' +
-          '• رقم = ثواني (مثل: 30)\n' +
-          '• 30s أو 5m\n' +
-          '• r = عشوائي (25-45ث)\n' +
-          '• r20-60 = نطاق مخصص', threadID);
+          '⏱ أرسل الوقت:\n• رقم = ثواني (مثل: 30)\n• 30s أو 5m\n• r = عشوائي\n• r20-60 = نطاق مخصص',
+          threadID);
         return true;
 
-      // ── 9: إرسال رسالة ────────────────────────────────────
       case 9:
         session.step = 'send-msg';
         api.sendMessage('💬 أرسل الرسالة التي تريد إرسالها للغروب:', threadID);
         return true;
 
-      // ── 10: إخراج البوت ───────────────────────────────────
       case 10:
         session.step = 'leave-confirm';
         api.sendMessage('⚠️ هل أنت متأكد من إخراج البوت من الغروب؟\nاكتب تأكيد للمتابعة أو اغلاق للإلغاء.', threadID);
         return true;
 
-      // ── 11: قفل اسم الغروب ────────────────────────────────
       case 11: {
         const gnLocked = groupProtect.isProtected(threadID);
         session.step = 'group-name';
@@ -262,7 +253,6 @@ async function handleSession(event, api) {
         return true;
       }
 
-      // ── 12: قفل كنية البوت ────────────────────────────────
       case 12: {
         const nickLocked = _botID && nickProtect.isProtected(threadID, _botID);
         const curNick    = nickLocked ? nickProtect.getProtected(threadID, _botID) : null;
@@ -275,18 +265,15 @@ async function handleSession(event, api) {
         return true;
       }
 
-      // ── 13: تغيير لقب عضو (مرة واحدة) ───────────────────
       case 13:
         session.step = 'nick-member';
         api.sendMessage(
           '👤 أرسل رسالة فيها منشن (@عضو) أو رد على رسالة العضو:\n' +
           'اكتب الكنية بعد المنشن أو في أول السطر عند الرد.\n' +
-          'مثال: @اسم الكنية الجديدة\n' +
-          'أو: ارد على رسالته واكتب الكنية فقط',
+          'مثال: @اسم الكنية الجديدة',
           threadID);
         return true;
 
-      // ── 14: قفل كنية الجميع ───────────────────────────────
       case 14:
         session.step = 'lock-all-confirm';
         api.sendMessage(
@@ -295,14 +282,14 @@ async function handleSession(event, api) {
           'اكتب تأكيد للمتابعة أو اغلاق للإلغاء.',
           threadID);
         return true;
+
+      default:
+        return false;
     }
   }
 
-  // ════════════════════════════════════════════════════════════
-  // معالجة الخطوات الثانوية
-  // ════════════════════════════════════════════════════════════
+  // ══ الخطوات الثانوية ══════════════════════════════════════════
 
-  // ── رسالة المحرك العادي / الذكي ─────────────────────────────
   if (session.step === 'set-msg-normal') {
     engine.normal.setMessage(text);
     if (engine.normal.isOn()) engine.normal.restart();
@@ -319,7 +306,6 @@ async function handleSession(event, api) {
     return true;
   }
 
-  // ── وقت المحركين ──────────────────────────────────────────
   if (session.step === 'set-time-normal' || session.step === 'set-time-smart') {
     const t = parseTime(text);
     if (!t) {
@@ -332,21 +318,19 @@ async function handleSession(event, api) {
       api.sendMessage('✅ الوقت العشوائي: ' + t.min + 's-' + t.max + 's 🎲', threadID);
     } else {
       eng.setTime(t.sec);
-      let display = t.sec < 60 ? t.sec + 'ث' : Math.floor(t.sec/60) + 'د';
+      const display = t.sec < 60 ? t.sec + 'ث' : Math.floor(t.sec / 60) + 'د';
       api.sendMessage('✅ الوقت: ~' + display + ' (±20%)', threadID);
     }
     sessions.delete(k);
     return true;
   }
 
-  // ── إرسال رسالة للغروب ──────────────────────────────────────
   if (session.step === 'send-msg') {
     sessions.delete(k);
     api.sendMessage(text, threadID);
     return true;
   }
 
-  // ── تأكيد إخراج البوت ──────────────────────────────────────
   if (session.step === 'leave-confirm') {
     sessions.delete(k);
     if (text === 'تأكيد') {
@@ -354,7 +338,7 @@ async function handleSession(event, api) {
         if (_botID) {
           try {
             const r = api.removeUserFromGroup(_botID, threadID);
-            if (r && r.catch) r.catch(() => {});
+            if (r && typeof r.catch === 'function') r.catch(() => {});
           } catch {}
         }
       });
@@ -364,7 +348,6 @@ async function handleSession(event, api) {
     return true;
   }
 
-  // ── قفل اسم الغروب ──────────────────────────────────────────
   if (session.step === 'group-name') {
     sessions.delete(k);
     if (text === 'ايقاف' || text === 'إيقاف') {
@@ -378,7 +361,6 @@ async function handleSession(event, api) {
     return true;
   }
 
-  // ── قفل كنية البوت ──────────────────────────────────────────
   if (session.step === 'bot-nick') {
     sessions.delete(k);
     if (text === 'ايقاف' || text === 'إيقاف') {
@@ -394,15 +376,12 @@ async function handleSession(event, api) {
     return true;
   }
 
-  // ── تغيير كنية عضو (مرة واحدة) ─────────────────────────────
   if (session.step === 'nick-member') {
-    // محاولة استخراج المنشن أولاً
     const mentioned = parseMentions(mentions);
     if (mentioned.length) {
       const { id, name } = mentioned[0];
       const nameWords = name.trim().split(/\s+/).filter(Boolean).length;
       const nickText  = text.trim().split(/\s+/).slice(nameWords).join(' ').trim();
-
       if (nickProtect.isProtected(threadID, id)) {
         sessions.delete(k);
         api.sendMessage('🔒 كنية ' + name + ' محمية. استخدم /تثبيت @شخص إلغاء أولاً.', threadID);
@@ -420,7 +399,6 @@ async function handleSession(event, api) {
       return true;
     }
 
-    // إذا كانت رداً على رسالة
     if (messageReply && messageReply.senderID) {
       const uid = String(messageReply.senderID);
       if (nickProtect.isProtected(threadID, uid)) {
@@ -440,12 +418,10 @@ async function handleSession(event, api) {
       return true;
     }
 
-    // لا يوجد منشن ولا رد
     api.sendMessage('⚠️ منشن عضو (@شخص) أو رد على رسالته، ثم أرسل الكنية.\nأو اكتب اغلاق للخروج.', threadID);
     return true;
   }
 
-  // ── تأكيد قفل كنيات الجميع ──────────────────────────────────
   if (session.step === 'lock-all-confirm') {
     sessions.delete(k);
     if (text !== 'تأكيد') {
@@ -456,7 +432,7 @@ async function handleSession(event, api) {
     lockAllNicks(api, threadID).then(r => {
       api.sendMessage(
         '✅ اكتمل!\n🔒 قُفل: ' + r.locked +
-        '\n⏭ محمي مسبقاً (تُجاهَل): ' + r.skipped +
+        '\n⏭ محمي مسبقاً: ' + r.skipped +
         '\n❌ فشل: ' + r.failed, threadID);
     }).catch(e => api.sendMessage('❌ خطأ: ' + e.message, threadID));
     return true;
@@ -476,10 +452,8 @@ async function lockAllNicks(api, threadID) {
     if (nickProtect.isProtected(threadID, uid)) { skipped++; continue; }
     if (i > 0) await new Promise(r => setTimeout(r, 2000));
     const currentNick = (info.nicknames && info.nicknames[uid]) || '';
-    try {
-      nickProtect.protect(threadID, uid, currentNick);
-      locked++;
-    } catch { failed++; }
+    try { nickProtect.protect(threadID, uid, currentNick); locked++; }
+    catch { failed++; }
   }
   return { locked, skipped, failed };
 }
