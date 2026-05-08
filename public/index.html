@@ -21,13 +21,11 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background .3s,color .3s}
 body.ltr{font-family:'Inter',sans-serif;direction:ltr}
-/* Layout */
 .app{display:flex;min-height:100vh}
 .sidebar{width:240px;background:var(--card);border-left:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;right:0;bottom:0;z-index:100;transition:transform .3s}
 body.ltr .sidebar{right:auto;left:0;border-left:none;border-right:1px solid var(--border)}
 .main{margin-right:240px;flex:1;padding:24px;max-width:100%}
 body.ltr .main{margin-right:0;margin-left:240px}
-/* Sidebar */
 .logo{padding:20px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
 .logo-icon{width:36px;height:36px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px}
 .logo-text{font-size:16px;font-weight:700;color:var(--text)}
@@ -38,11 +36,9 @@ body.ltr .main{margin-right:0;margin-left:240px}
 .nav-item.active{background:var(--blue);color:#fff}
 .nav-item .icon{font-size:16px;width:20px;text-align:center}
 .sidebar-footer{padding:12px 8px;border-top:1px solid var(--border)}
-/* Status badge */
 .status-dot{width:8px;height:8px;border-radius:50%;background:var(--danger);display:inline-block;animation:pulse 2s infinite}
 .status-dot.on{background:var(--success)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-/* Cards */
 .page{display:none}.page.active{display:block}
 .page-header{margin-bottom:24px}
 .page-title{font-size:22px;font-weight:700;margin-bottom:4px}
@@ -52,18 +48,16 @@ body.ltr .main{margin-right:0;margin-left:240px}
 .grid-3{grid-template-columns:repeat(3,1fr)}
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
 .card-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
-/* Stat cards */
 .stat{display:flex;flex-direction:column;gap:6px}
 .stat-val{font-size:28px;font-weight:700;color:var(--text)}
 .stat-label{font-size:12px;color:var(--text3)}
 .stat-icon{font-size:24px;margin-bottom:8px}
-/* Forms */
 label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px}
 input,textarea,select{width:100%;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;outline:none;transition:border .2s}
 input:focus,textarea:focus,select:focus{border-color:var(--blue)}
+input[type=range]{padding:4px 0;border:none;background:transparent}
 textarea{min-height:100px;resize:vertical}
 .form-group{margin-bottom:16px}
-/* Buttons */
 .btn{padding:10px 18px;border-radius:8px;border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
 .btn-primary{background:var(--blue);color:#fff}
 .btn-primary:hover{background:var(--blue3)}
@@ -72,10 +66,10 @@ textarea{min-height:100px;resize:vertical}
 .btn-ghost{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
 .btn-ghost:hover{border-color:var(--blue);color:var(--blue)}
 .btn-success{background:var(--success);color:#fff}
+.btn-warn{background:var(--warn);color:#fff}
 .btn-sm{padding:6px 12px;font-size:12px}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-/* Toggle */
 .toggle{position:relative;width:44px;height:24px;cursor:pointer}
 .toggle input{opacity:0;width:0;height:0}
 .toggle-track{position:absolute;inset:0;background:var(--bg3);border-radius:12px;border:1px solid var(--border);transition:.3s}
@@ -84,45 +78,46 @@ textarea{min-height:100px;resize:vertical}
 body.ltr .toggle-thumb{right:auto;left:2px}
 .toggle input:checked~.toggle-thumb{right:24px}
 body.ltr .toggle input:checked~.toggle-thumb{right:auto;left:24px}
-/* Log viewer */
 .log-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;height:320px;overflow-y:auto;font-family:monospace;font-size:12px;direction:ltr}
 .log-line{padding:2px 0;border-bottom:1px solid rgba(255,255,255,.03)}
-.log-INFO{color:#60a5fa}
-.log-WARN{color:#fbbf24}
-.log-ERROR{color:#f87171}
-.log-OK{color:#4ade80}
-.log-BOT{color:#c084fc}
-/* Admin list */
+.log-INFO{color:#60a5fa}.log-WARN{color:#fbbf24}.log-ERROR{color:#f87171}.log-OK{color:#4ade80}.log-BOT{color:#c084fc}
 .admin-item{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:6px;font-size:13px}
 .admin-id{font-family:monospace;color:var(--blue2)}
-/* Badge */
 .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
 .badge-green{background:rgba(34,197,94,.15);color:var(--success)}
 .badge-blue{background:rgba(37,99,235,.15);color:var(--blue2)}
 .badge-red{background:rgba(239,68,68,.15);color:var(--danger)}
-/* Switch row */
+.badge-warn{background:rgba(245,158,11,.15);color:var(--warn)}
 .switch-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)}
 .switch-row:last-child{border-bottom:none}
 .switch-info h4{font-size:14px;font-weight:600;margin-bottom:2px}
 .switch-info p{font-size:12px;color:var(--text3)}
-/* Auto msg table */
 .msg-row{display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg3);border-radius:8px;margin-bottom:6px;font-size:12px}
 .msg-id{background:var(--blue);color:#fff;border-radius:4px;padding:2px 6px;font-weight:700;min-width:28px;text-align:center}
 .msg-txt{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .msg-time{color:var(--text3);white-space:nowrap}
-/* Dev tools */
 .code-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:monospace;font-size:12px;white-space:pre-wrap;overflow-x:auto;direction:ltr;color:var(--text2)}
-/* Alert */
 .alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:12px;display:none}
 .alert.show{display:block}
 .alert-success{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:var(--success)}
 .alert-error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--danger)}
-/* Header controls */
+.alert-warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
 .header-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 0 20px;gap:12px;flex-wrap:wrap}
 .header-controls{display:flex;gap:8px;align-items:center}
 .icon-btn{width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text2);transition:all .2s}
 .icon-btn:hover{border-color:var(--blue);color:var(--blue)}
-/* Mobile */
+/* Range slider labels */
+.range-row{display:flex;align-items:center;gap:12px}
+.range-row input[type=range]{flex:1}
+.range-val{min-width:60px;text-align:center;font-size:13px;font-weight:600;color:var(--blue2);background:var(--bg3);padding:4px 8px;border-radius:6px}
+/* Protected list */
+.protect-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:6px;font-size:13px;gap:8px}
+.protect-uid{font-family:monospace;font-size:11px;color:var(--text3)}
+/* Progress bar */
+.progress-bar-wrap{background:var(--bg3);border-radius:8px;height:8px;overflow:hidden;margin:8px 0}
+.progress-bar{height:100%;background:var(--blue);border-radius:8px;transition:width .4s}
+/* Job status box */
+.job-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12px;font-family:monospace;direction:ltr;max-height:160px;overflow-y:auto;margin-top:10px}
 @media(max-width:768px){
   .sidebar{transform:translateX(100%)}
   body.ltr .sidebar{transform:translateX(-100%)}
@@ -131,16 +126,15 @@ body.ltr .toggle input:checked~.toggle-thumb{right:auto;left:24px}
   .grid-2,.grid-3{grid-template-columns:1fr}
   .bottom-nav{display:flex!important}
 }
-.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);padding:8px 0;z-index:100;justify-content:space-around}
-.bnav-item{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 12px;cursor:pointer;color:var(--text3);font-size:10px;border-radius:8px;transition:.2s}
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);padding:6px 0;z-index:100;justify-content:space-around;overflow-x:auto}
+.bnav-item{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 8px;cursor:pointer;color:var(--text3);font-size:9px;border-radius:8px;transition:.2s;flex-shrink:0;position:relative}
 .bnav-item.active,.bnav-item:hover{color:var(--blue)}
 .bnav-item .icon{font-size:18px}
-/* Token modal */
+.bnav-badge{position:absolute;top:0;right:4px;background:var(--danger);color:#fff;border-radius:10px;font-size:9px;padding:0 4px;min-width:16px;text-align:center;display:none}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
 .modal{background:var(--card);border-radius:var(--radius);padding:28px;width:100%;max-width:400px;border:1px solid var(--border)}
 .modal h2{margin-bottom:8px;font-size:18px}
 .modal p{color:var(--text2);font-size:13px;margin-bottom:20px}
-/* Hamburger */
 .hamburger{display:none;position:fixed;top:12px;right:12px;z-index:150;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;cursor:pointer;font-size:18px}
 body.ltr .hamburger{right:auto;left:12px}
 @media(max-width:768px){.hamburger{display:flex}}
@@ -186,6 +180,7 @@ body.ltr .hamburger{right:auto;left:12px}
     <div class="nav-item" onclick="goPage('admins')" data-page="admins"><span class="icon">👥</span><span id="n-admins">المشرفون</span></div>
     <div class="nav-item" onclick="goPage('automsg')" data-page="automsg"><span class="icon">📨</span><span id="n-automsg">رسائل تلقائية</span></div>
     <div class="nav-item" onclick="goPage('pending')" data-page="pending"><span class="icon">📩</span><span id="n-pending">طلبات المراسلة</span> <span id="pendingBadge" style="display:none;background:var(--danger);color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;margin-right:auto"></span></div>
+    <div class="nav-item" onclick="goPage('nickgroups')" data-page="nickgroups"><span class="icon">✏️</span><span id="n-nickgroups">الكنى والمجموعات</span></div>
     <div class="nav-item" onclick="goPage('logs')" data-page="logs"><span class="icon">📋</span><span id="n-logs">السجلات</span></div>
     <div class="nav-item" onclick="goPage('broadcast')" data-page="broadcast"><span class="icon">📡</span><span id="n-broadcast">البث</span></div>
     <div class="nav-item" onclick="goPage('devtools')" data-page="devtools"><span class="icon">🛠️</span><span id="n-devtools">أدوات المطور</span></div>
@@ -308,6 +303,174 @@ body.ltr .hamburger{right:auto;left:12px}
   </div>
 </div>
 
+<!-- Pending Requests -->
+<div class="page" id="page-pending">
+  <div class="header-bar">
+    <div>
+      <div class="page-title">طلبات المراسلة المعلقة</div>
+      <div class="page-sub">اقبل أو ارفض طلبات المراسلة الواردة لحساب البوت</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-ghost btn-sm" onclick="loadPending()">🔄 تحديث</button>
+      <button class="btn btn-success btn-sm" onclick="acceptAllPending()" id="acceptAllBtn">✅ قبول الكل</button>
+    </div>
+  </div>
+  <div class="alert alert-success" id="pending-ok" style="margin-bottom:12px"></div>
+  <div class="alert alert-error" id="pending-err" style="margin-bottom:12px"></div>
+  <div class="card">
+    <div id="pendingStats" style="font-size:12px;color:var(--text3);margin-bottom:14px"></div>
+    <div id="pendingList">
+      <div style="text-align:center;padding:32px;color:var(--text3)">
+        <div style="font-size:32px;margin-bottom:8px">📩</div>
+        <div>اضغط تحديث لتحميل الطلبات</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Nicknames & Groups -->
+<div class="page" id="page-nickgroups">
+  <div class="header-bar">
+    <div>
+      <div class="page-title">✏️ الكنى والمجموعات</div>
+      <div class="page-sub">تعيين أسماء المجموعات وكنى الأعضاء مع التحكم في السرعة والحماية</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="loadNickPage()">🔄 تحديث</button>
+    </div>
+  </div>
+  <div class="alert alert-success" id="ng-ok" style="margin-bottom:12px"></div>
+  <div class="alert alert-error" id="ng-err" style="margin-bottom:12px"></div>
+
+  <div class="grid grid-2" style="margin-bottom:16px">
+
+    <!-- Group Name Card -->
+    <div class="card">
+      <div class="card-title">🏷️ اسم المجموعة</div>
+      <div class="form-group"><label>Thread ID المجموعة</label><input id="gn-thread" placeholder="معرف المجموعة"></div>
+      <div class="form-group"><label>الاسم الجديد</label><input id="gn-name" placeholder="اسم المجموعة..."></div>
+      <div class="switch-row" style="padding:10px 0 14px">
+        <div class="switch-info">
+          <h4>🔒 تثبيت الاسم</h4>
+          <p>يمنع تغيير اسم المجموعة</p>
+        </div>
+        <label class="toggle"><input type="checkbox" id="gn-protect"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="setGroupName()">✅ تعيين</button>
+        <button class="btn btn-danger btn-sm" onclick="removeGroupProtect()">🔓 إزالة الحماية</button>
+      </div>
+    </div>
+
+    <!-- Single Nickname Card -->
+    <div class="card">
+      <div class="card-title">✏️ كنية عضو واحد</div>
+      <div class="form-group"><label>Thread ID المجموعة</label><input id="sn-thread" placeholder="معرف المجموعة"></div>
+      <div class="form-group"><label>User ID العضو</label><input id="sn-uid" placeholder="معرف العضو"></div>
+      <div class="form-group"><label>الكنية (اتركها فارغة للمسح)</label><input id="sn-nick" placeholder="الكنية الجديدة..."></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="setOneNick()">✅ تعيين</button>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('sn-nick').value=''">🗑 مسح</button>
+      </div>
+    </div>
+
+    <!-- Bulk Nickname Card -->
+    <div class="card">
+      <div class="card-title">📋 كنية لجميع الأعضاء</div>
+      <div class="form-group"><label>Thread ID المجموعة</label><input id="bn-thread" placeholder="معرف المجموعة"></div>
+      <div class="form-group"><label>الكنية (اتركها فارغة للمسح)</label><input id="bn-nick" placeholder="نفس الكنية لجميع الأعضاء..."></div>
+      <div class="alert alert-warn" id="ng-job-warn" style="margin-bottom:8px">⚠️ العملية تعمل في الخلفية — تابع التقدم أدناه</div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="setAllNicks()" id="setAllBtn">🚀 بدء التعيين</button>
+        <button class="btn btn-ghost btn-sm" onclick="pollNickJob()">🔄 تحقق من التقدم</button>
+      </div>
+      <div id="ng-job-progress" style="display:none;margin-top:10px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:4px">
+          <span id="ng-job-label">جاري...</span>
+          <span id="ng-job-pct">0%</span>
+        </div>
+        <div class="progress-bar-wrap"><div class="progress-bar" id="ng-job-bar" style="width:0%"></div></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">
+          ✅ <span id="ng-done">0</span> &nbsp; ❌ <span id="ng-fail">0</span> &nbsp; ⏭ <span id="ng-skip">0</span>
+        </div>
+        <div class="job-box" id="ng-job-log"></div>
+      </div>
+    </div>
+
+    <!-- Nick Speed Card -->
+    <div class="card">
+      <div class="card-title">⚡ سرعة تغيير الكنى</div>
+      <p style="font-size:12px;color:var(--text3);margin-bottom:14px">تحكم في سرعة العمليات لتجنب الحظر</p>
+
+      <div class="form-group">
+        <label>تأخير بين كل كنية (ms)</label>
+        <div class="range-row">
+          <input type="range" id="ns-delay" min="500" max="10000" step="500" value="3000" oninput="document.getElementById('ns-delay-val').textContent=this.value+'ms'">
+          <span class="range-val" id="ns-delay-val">3000ms</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>حجم الدفعة (عدد الأعضاء قبل التوقف)</label>
+        <div class="range-row">
+          <input type="range" id="ns-batch" min="1" max="20" step="1" value="5" oninput="document.getElementById('ns-batch-val').textContent=this.value">
+          <span class="range-val" id="ns-batch-val">5</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>تأخير بين الدفعات (ms)</label>
+        <div class="range-row">
+          <input type="range" id="ns-bdel" min="5000" max="60000" step="1000" value="12000" oninput="document.getElementById('ns-bdel-val').textContent=this.value+'ms'">
+          <span class="range-val" id="ns-bdel-val">12000ms</span>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveNickSpeed()">💾 حفظ الإعدادات</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadNickSpeed()">🔄 تحديث</button>
+      </div>
+    </div>
+
+  </div><!-- end grid -->
+
+  <!-- Protection Management -->
+  <div class="grid grid-2">
+
+    <!-- Protected Nicks -->
+    <div class="card">
+      <div class="card-title">🔒 كنى محمية</div>
+      <div class="form-group"><label>Thread ID (اختياري للفلترة)</label><input id="pn-thread" placeholder="اتركه فارغاً لعرض الكل"></div>
+      <div class="btn-row" style="margin-bottom:12px">
+        <button class="btn btn-ghost btn-sm" onclick="loadProtectedNicks()">🔄 تحميل القائمة</button>
+      </div>
+      <!-- Add protection form -->
+      <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:8px">إضافة حماية جديدة</div>
+        <div class="form-group" style="margin-bottom:8px"><label>Thread ID</label><input id="pn-add-thread" placeholder="معرف المجموعة"></div>
+        <div class="form-group" style="margin-bottom:8px"><label>User ID</label><input id="pn-add-uid" placeholder="معرف العضو"></div>
+        <div class="form-group" style="margin-bottom:8px"><label>الكنية (اتركها فارغة للجلب التلقائي)</label><input id="pn-add-nick" placeholder="الكنية المراد تثبيتها..."></div>
+        <button class="btn btn-success btn-sm" onclick="addNickProtect()">🔒 تثبيت</button>
+      </div>
+      <div id="protectedNickList"><div style="color:var(--text3);font-size:12px;text-align:center;padding:16px">اضغط «تحميل القائمة»</div></div>
+    </div>
+
+    <!-- Protected Groups -->
+    <div class="card">
+      <div class="card-title">🏷️ مجموعات محمية الاسم</div>
+      <div class="btn-row" style="margin-bottom:12px">
+        <button class="btn btn-ghost btn-sm" onclick="loadProtectedGroups()">🔄 تحميل القائمة</button>
+      </div>
+      <!-- Add group protection -->
+      <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:8px">تثبيت اسم مجموعة</div>
+        <div class="form-group" style="margin-bottom:8px"><label>Thread ID</label><input id="pg-add-thread" placeholder="معرف المجموعة"></div>
+        <div class="form-group" style="margin-bottom:8px"><label>الاسم المراد تثبيته</label><input id="pg-add-name" placeholder="الاسم الثابت..."></div>
+        <button class="btn btn-success btn-sm" onclick="addGroupProtect()">🔒 تثبيت</button>
+      </div>
+      <div id="protectedGroupList"><div style="color:var(--text3);font-size:12px;text-align:center;padding:16px">اضغط «تحميل القائمة»</div></div>
+    </div>
+
+  </div>
+</div>
+
 <!-- Logs -->
 <div class="page" id="page-logs">
   <div class="page-title" id="t-logs-title">سجلات البوت</div>
@@ -344,7 +507,7 @@ body.ltr .hamburger{right:auto;left:12px}
   <div class="grid grid-2">
     <div class="card">
       <div class="card-title" id="t-api-test">اختبار API</div>
-      <div class="form-group"><label>Endpoint</label><select id="apiEndpoint" style="width:100%"><option>/dash/status</option><option>/dash/config</option><option>/dash/admins</option><option>/dash/logs</option><option>/dash/automsg</option></select></div>
+      <div class="form-group"><label>Endpoint</label><select id="apiEndpoint" style="width:100%"><option>/dash/status</option><option>/dash/config</option><option>/dash/admins</option><option>/dash/logs</option><option>/dash/automsg</option><option>/dash/nickspeed</option><option>/dash/groupprotect</option><option>/dash/nickprotect</option></select></div>
       <button class="btn btn-primary btn-sm" onclick="testApi()" id="t-test-btn">🔍 اختبار</button>
       <div class="code-box" id="apiResult" style="margin-top:10px;max-height:200px;overflow:auto">النتيجة ستظهر هنا...</div>
     </div>
@@ -364,31 +527,6 @@ body.ltr .hamburger{right:auto;left:12px}
   </div>
 </div>
 
-<!-- Pending Requests -->
-<div class="page" id="page-pending">
-  <div class="header-bar">
-    <div>
-      <div class="page-title">طلبات المراسلة المعلقة</div>
-      <div class="page-sub">اقبل أو ارفض طلبات المراسلة الواردة لحساب البوت</div>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <button class="btn btn-ghost btn-sm" onclick="loadPending()">🔄 تحديث</button>
-      <button class="btn btn-success btn-sm" onclick="acceptAllPending()" id="acceptAllBtn">✅ قبول الكل</button>
-    </div>
-  </div>
-  <div class="alert alert-success" id="pending-ok" style="margin-bottom:12px"></div>
-  <div class="alert alert-error" id="pending-err" style="margin-bottom:12px"></div>
-  <div class="card">
-    <div id="pendingStats" style="font-size:12px;color:var(--text3);margin-bottom:14px"></div>
-    <div id="pendingList">
-      <div style="text-align:center;padding:32px;color:var(--text3)">
-        <div style="font-size:32px;margin-bottom:8px">📩</div>
-        <div>اضغط تحديث لتحميل الطلبات</div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- Config -->
 <div class="page" id="page-config">
   <div class="page-title" id="t-config-title">إعدادات البوت</div>
@@ -396,7 +534,7 @@ body.ltr .hamburger{right:auto;left:12px}
   <div class="card">
     <div class="form-group"><label id="t-prefix-label">البادئة (Prefix)</label><input id="cfgPrefix" value="/"></div>
     <div class="form-group"><label id="t-botname-label">اسم البوت</label><input id="cfgBotName" value="Bot"></div>
-    <div class="form-group"><label id="t-token-label">رمز الدخول للوحة</label><input type="password" id="cfgToken" placeholder="اتركه فارغاً للإبقاء على الحالي"></div>
+    <div class="form-group"><label id="t-token-label2">رمز الدخول للوحة</label><input type="password" id="cfgToken" placeholder="اتركه فارغاً للإبقاء على الحالي"></div>
     <div class="form-group"><label id="t-reconnect-label">تأخير إعادة الاتصال (ms)</label><input type="number" id="cfgReconnect" value="5000"></div>
     <button class="btn btn-primary" onclick="saveConfig()" id="t-save-config">💾 حفظ التغييرات</button>
     <div class="alert alert-success" id="cfg-ok" style="margin-top:10px"></div>
@@ -407,12 +545,16 @@ body.ltr .hamburger{right:auto;left:12px}
 </main>
 </div>
 
-<!-- Bottom Nav -->
+<!-- Bottom Nav (mobile) — 6 items -->
 <nav class="bottom-nav">
   <div class="bnav-item active" onclick="goPage('overview')"><span class="icon">📊</span><span id="bn-ov">عامة</span></div>
   <div class="bnav-item" onclick="goPage('controls')"><span class="icon">🎮</span><span id="bn-ctrl">تحكم</span></div>
+  <div class="bnav-item" onclick="goPage('pending')" style="position:relative">
+    <span class="icon">📩</span><span id="bn-pend">طلبات</span>
+    <span class="bnav-badge" id="bnav-pending-badge"></span>
+  </div>
+  <div class="bnav-item" onclick="goPage('nickgroups')"><span class="icon">✏️</span><span id="bn-nick">الكنى</span></div>
   <div class="bnav-item" onclick="goPage('logs')"><span class="icon">📋</span><span id="bn-logs">سجلات</span></div>
-  <div class="bnav-item" onclick="goPage('admins')"><span class="icon">👥</span><span id="bn-adm">مشرفون</span></div>
   <div class="bnav-item" onclick="goPage('config')"><span class="icon">⚙️</span><span id="bn-cfg">إعدادات</span></div>
 </nav>
 
@@ -421,8 +563,9 @@ body.ltr .hamburger{right:auto;left:12px}
 let TOKEN = localStorage.getItem('dash_token') || '';
 let LANG  = localStorage.getItem('dash_lang')  || 'ar';
 let THEME = localStorage.getItem('dash_theme') || 'dark';
-let logInterval = null;
 let allLogs = [];
+let autoRefTimer = null;
+let nickJobTimer = null;
 
 const BASE = window.location.origin;
 
@@ -431,7 +574,8 @@ const T = {
   ar:{
     login:'🔐 تسجيل الدخول','login-sub':'أدخل رمز الدخول','token-label':'رمز الدخول',enter:'دخول',
     'n-overview':'نظرة عامة','n-controls':'التحكم','n-cookies':'الكوكيز','n-admins':'المشرفون',
-    'n-automsg':'رسائل تلقائية','n-logs':'السجلات','n-broadcast':'البث','n-devtools':'أدوات المطور','n-config':'الإعدادات',
+    'n-automsg':'رسائل تلقائية','n-pending':'طلبات المراسلة','n-nickgroups':'الكنى والمجموعات',
+    'n-logs':'السجلات','n-broadcast':'البث','n-devtools':'أدوات المطور','n-config':'الإعدادات',
     'overview-title':'نظرة عامة','overview-sub':'حالة البوت والإحصائيات',
     's1':'حالة البوت','s2':'وقت التشغيل','s3':'الذاكرة',
     'bot-info':'معلومات البوت',prefix:'البادئة',name:'الاسم',
@@ -462,12 +606,13 @@ const T = {
     'save-config':'💾 حفظ التغييرات',
     'bot-name':'Bot Dashboard',loading:'جاري التحميل...',
     online:'متصل ✅',offline:'غير متصل ❌',
-    'bn-ov':'عامة','bn-ctrl':'تحكم','bn-logs':'سجلات','bn-adm':'مشرفون','bn-cfg':'إعدادات',
+    'bn-ov':'عامة','bn-ctrl':'تحكم','bn-pend':'طلبات','bn-nick':'الكنى','bn-logs':'سجلات','bn-cfg':'إعدادات',
   },
   en:{
     login:'🔐 Login','login-sub':'Enter your dashboard token','token-label':'Access Token',enter:'Login',
     'n-overview':'Overview','n-controls':'Controls','n-cookies':'Cookies','n-admins':'Admins',
-    'n-automsg':'Auto Messages','n-logs':'Logs','n-broadcast':'Broadcast','n-devtools':'Dev Tools','n-config':'Config',
+    'n-automsg':'Auto Messages','n-pending':'Message Requests','n-nickgroups':'Names & Nicknames',
+    'n-logs':'Logs','n-broadcast':'Broadcast','n-devtools':'Dev Tools','n-config':'Config',
     'overview-title':'Overview','overview-sub':'Bot status and statistics',
     's1':'Bot Status','s2':'Uptime','s3':'Memory',
     'bot-info':'Bot Info',prefix:'Prefix',name:'Name',
@@ -498,7 +643,7 @@ const T = {
     'save-config':'💾 Save Changes',
     'bot-name':'Bot Dashboard',loading:'Loading...',
     online:'Online ✅',offline:'Offline ❌',
-    'bn-ov':'Overview','bn-ctrl':'Controls','bn-logs':'Logs','bn-adm':'Admins','bn-cfg':'Config',
+    'bn-ov':'Overview','bn-ctrl':'Controls','bn-pend':'Requests','bn-nick':'Nicks','bn-logs':'Logs','bn-cfg':'Config',
   }
 };
 
@@ -510,24 +655,29 @@ function applyLang() {
   document.documentElement.dir = isAr ? 'rtl' : 'ltr';
   document.body.classList.toggle('ltr', !isAr);
   document.getElementById('langBtn').textContent = isAr ? '🇺🇸' : '🇸🇦';
-  // Update all text nodes
-  const ids = ['t-login','t-login-sub','t-token-label','t-enter','n-overview','n-controls','n-cookies',
-    'n-admins','n-automsg','n-logs','n-broadcast','n-devtools','n-config','t-overview-title','t-overview-sub',
-    't-s1','t-s2','t-s3','t-bot-info','t-prefix','t-name','t-quick','t-engine','t-engine-sub','t-apply-engine',
-    't-engine-msg-label','t-controls-title','t-controls-sub','t-send-msg','t-message','t-send','t-remote-cmd',
-    't-remote-hint','t-cmd','t-run','t-cookies-title','t-cookies-sub','t-paste-cookies','t-cookie-hint',
-    't-save-cookies','t-validate','t-admins-title','t-admins-sub','t-add-admin','t-add-btn','t-admin-list',
-    't-automsg-title','t-automsg-sub','t-msg-list','t-no-msgs','t-refresh-msgs','t-logs-title','t-logs-sub',
-    't-all','t-refresh-logs','t-clear-logs','t-auto-refresh','t-broadcast-title','t-broadcast-sub',
-    't-thread-ids','t-bc-msg','t-delay-label','t-broadcast-btn','t-devtools-title','t-devtools-sub',
-    't-api-test','t-test-btn','t-stats-title','t-env-title','t-log-filter-title','t-search-label',
-    't-config-title','t-config-sub','t-prefix-label','t-botname-label','t-token-label','t-reconnect-label',
-    't-save-config','t-bot-name','t-loading','bn-ov','bn-ctrl','bn-logs','bn-adm','bn-cfg'];
+  const ids = ['t-login','t-login-sub','t-token-label','t-enter',
+    'n-overview','n-controls','n-cookies','n-admins','n-automsg','n-pending','n-nickgroups',
+    'n-logs','n-broadcast','n-devtools','n-config',
+    't-overview-title','t-overview-sub','t-s1','t-s2','t-s3','t-bot-info','t-prefix','t-name',
+    't-quick','t-engine','t-engine-sub','t-apply-engine','t-engine-msg-label',
+    't-controls-title','t-controls-sub','t-send-msg','t-message','t-send','t-remote-cmd',
+    't-remote-hint','t-cmd','t-run','t-cookies-title','t-cookies-sub','t-paste-cookies',
+    't-cookie-hint','t-save-cookies','t-validate','t-admins-title','t-admins-sub',
+    't-add-admin','t-add-btn','t-admin-list','t-automsg-title','t-automsg-sub',
+    't-msg-list','t-no-msgs','t-refresh-msgs','t-logs-title','t-logs-sub',
+    't-all','t-refresh-logs','t-clear-logs','t-auto-refresh',
+    't-broadcast-title','t-broadcast-sub','t-thread-ids','t-bc-msg','t-delay-label','t-broadcast-btn',
+    't-devtools-title','t-devtools-sub','t-api-test','t-test-btn',
+    't-stats-title','t-env-title','t-log-filter-title','t-search-label',
+    't-config-title','t-config-sub','t-prefix-label','t-botname-label',
+    't-token-label2','t-reconnect-label','t-save-config','t-bot-name','t-loading',
+    'bn-ov','bn-ctrl','bn-pend','bn-nick','bn-logs','bn-cfg'];
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       const key = id.startsWith('t-') ? id.slice(2) : id;
-      el.textContent = t(key) || el.textContent;
+      const val = t(key);
+      if (val && val !== key) el.textContent = val;
     }
   });
 }
@@ -566,15 +716,15 @@ function logout() {
 document.getElementById('tokenInput').addEventListener('keydown', e => { if (e.key === 'Enter') saveToken(); });
 
 // ── API ───────────────────────────────────────────────────────
-async function api(method, url, body) {
+async function apiCall(method, url, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json', 'x-token': TOKEN } };
   if (body) opts.body = JSON.stringify(body);
   const r = await fetch(BASE + url, opts);
   return r.json();
 }
-const GET  = url       => api('GET',  url);
-const POST = (url, b)  => api('POST', url, b);
-const DEL  = url       => api('DELETE', url);
+const GET  = url      => apiCall('GET',    url);
+const POST = (url, b) => apiCall('POST',   url, b);
+const DEL  = url      => apiCall('DELETE', url);
 
 // ── Navigation ────────────────────────────────────────────────
 function goPage(id) {
@@ -584,12 +734,13 @@ function goPage(id) {
   document.getElementById('page-' + id)?.classList.add('active');
   document.querySelector('[data-page="' + id + '"]')?.classList.add('active');
   closeSidebar();
-  if (id === 'admins')  loadAdmins();
-  if (id === 'logs')    loadLogs();
-  if (id === 'automsg') loadAutoMsgs();
-  if (id === 'config')  loadConfig();
-  if (id === 'devtools') loadDevTools();
-  if (id === 'pending') loadPending();
+  if (id === 'admins')     loadAdmins();
+  if (id === 'logs')       loadLogs();
+  if (id === 'automsg')    loadAutoMsgs();
+  if (id === 'config')     loadConfig();
+  if (id === 'devtools')   loadDevTools();
+  if (id === 'pending')    loadPending();
+  if (id === 'nickgroups') loadNickPage();
 }
 
 function toggleSidebar() {
@@ -689,7 +840,7 @@ async function loadAdmins() {
     });
   }
   if (!r.superAdmins?.length && !r.runtimeAdmins?.length)
-    el.innerHTML = '<div style="color:var(--text3);font-size:13px">' + t('no-msgs') + '</div>';
+    el.innerHTML = '<div style="color:var(--text3);font-size:13px">لا يوجد مشرفون</div>';
 }
 async function addAdmin() {
   const id = document.getElementById('adminID').value.trim();
@@ -707,7 +858,7 @@ async function removeAdmin(id) {
 async function loadAutoMsgs() {
   const msgs = await GET('/dash/automsg');
   const el = document.getElementById('autoMsgList');
-  if (!msgs.length) { el.innerHTML = '<div style="color:var(--text3);font-size:13px">' + t('no-msgs') + '</div>'; return; }
+  if (!msgs.length) { el.innerHTML = '<div style="color:var(--text3);font-size:13px">لا توجد رسائل تلقائية</div>'; return; }
   el.innerHTML = msgs.map(m => `
     <div class="msg-row">
       <span class="msg-id">#${m.id}</span>
@@ -733,7 +884,6 @@ async function loadLogs() {
   allLogs = logs;
   renderLogs(logs);
 }
-
 function renderLogs(logs) {
   const box = document.getElementById('logBox');
   if (!logs.length) { box.innerHTML = '<span style="color:var(--text3)">لا توجد سجلات</span>'; return; }
@@ -744,7 +894,6 @@ function renderLogs(logs) {
   }).join('');
   box.scrollTop = box.scrollHeight;
 }
-
 function filterLogs() {
   const q = document.getElementById('logSearch').value.toLowerCase();
   const el = document.getElementById('filteredLogs');
@@ -753,8 +902,6 @@ function filterLogs() {
   el.innerHTML = filtered.map(l =>
     `<div class="log-line log-${l.level}">[${l.level}] ${escHtml(l.msg)}</div>`).join('');
 }
-
-let autoRefTimer = null;
 function toggleAutoRefresh() {
   const on = document.getElementById('autoRefresh').checked;
   if (on) autoRefTimer = setInterval(loadLogs, 3000);
@@ -788,7 +935,6 @@ async function testApi() {
     box.textContent = JSON.stringify(r, null, 2);
   } catch (e) { box.textContent = 'Error: ' + e.message; }
 }
-
 async function loadDevTools() {
   const s = await GET('/dash/status').catch(() => ({}));
   document.getElementById('statsBox').innerHTML = `
@@ -823,7 +969,6 @@ async function saveConfig() {
 
 // ── Pending Message Requests ──────────────────────────────────
 let _pendingList = [];
-
 async function loadPending() {
   const el = document.getElementById('pendingList');
   const stats = document.getElementById('pendingStats');
@@ -831,30 +976,24 @@ async function loadPending() {
   try {
     const list = await GET('/dash/pending');
     _pendingList = list;
-    const badge = document.getElementById('pendingBadge');
-    if (list.length > 0) {
-      badge.textContent = list.length;
-      badge.style.display = 'inline-block';
-    } else {
-      badge.style.display = 'none';
-    }
+    updatePendingBadge(list.length);
     if (!list.length) {
       stats.textContent = '';
       el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3)"><div style="font-size:40px;margin-bottom:10px">✅</div><div>لا توجد طلبات مراسلة معلقة</div></div>';
       return;
     }
     stats.textContent = '📩 ' + list.length + ' طلب معلق';
-    el.innerHTML = list.map((t, i) => {
-      const name     = escHtml(t.name || (t.isGroup ? 'مجموعة بدون اسم' : 'محادثة خاصة'));
-      const snippet  = t.snippet ? escHtml(t.snippet.slice(0, 60)) : '';
-      const type     = t.isGroup ? '<span class="badge badge-blue">مجموعة</span>' : '<span class="badge badge-green">خاص</span>';
-      const ts       = t.timestamp ? new Date(t.timestamp).toLocaleString('ar-SA') : '';
-      const members  = t.participants && t.participants.length
-        ? '<div style="font-size:11px;color:var(--text3);margin-top:4px">👥 ' + t.participants.map(p => escHtml(p.name || p.id)).join('، ') + '</div>'
+    el.innerHTML = list.map((item, i) => {
+      const name     = escHtml(item.name || (item.isGroup ? 'مجموعة بدون اسم' : 'محادثة خاصة'));
+      const snippet  = item.snippet ? escHtml(item.snippet.slice(0, 60)) : '';
+      const type     = item.isGroup ? '<span class="badge badge-blue">مجموعة</span>' : '<span class="badge badge-green">خاص</span>';
+      const ts       = item.timestamp ? new Date(item.timestamp).toLocaleString('ar-SA') : '';
+      const members  = item.participants && item.participants.length
+        ? '<div style="font-size:11px;color:var(--text3);margin-top:4px">👥 ' + item.participants.map(p => escHtml(p.name || p.id)).join('، ') + '</div>'
         : '';
       return `
         <div id="pitem-${i}" style="display:flex;align-items:flex-start;gap:12px;padding:14px 12px;border-bottom:1px solid var(--border);transition:opacity .3s">
-          <div style="font-size:28px;flex-shrink:0">${t.isGroup ? '👥' : '💬'}</div>
+          <div style="font-size:28px;flex-shrink:0">${item.isGroup ? '👥' : '💬'}</div>
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
               <span style="font-weight:600;font-size:14px">${name}</span>
@@ -862,17 +1001,29 @@ async function loadPending() {
               <span style="font-size:11px;color:var(--text3);margin-right:auto">${ts}</span>
             </div>
             ${snippet ? '<div style="font-size:12px;color:var(--text2);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + snippet + '</div>' : ''}
-            <div style="font-family:monospace;font-size:10px;color:var(--text3);margin-top:2px">${escHtml(t.threadID)}</div>
+            <div style="font-family:monospace;font-size:10px;color:var(--text3);margin-top:2px">${escHtml(item.threadID)}</div>
             ${members}
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
-            <button class="btn btn-success btn-sm" onclick="acceptPendingOne('${escHtml(t.threadID)}', ${i})">✅ قبول</button>
-            <button class="btn btn-danger btn-sm" onclick="rejectPendingOne('${escHtml(t.threadID)}', ${i})">🚫 رفض</button>
+            <button class="btn btn-success btn-sm" onclick="acceptPendingOne('${escHtml(item.threadID)}',${i})">✅ قبول</button>
+            <button class="btn btn-danger btn-sm" onclick="rejectPendingOne('${escHtml(item.threadID)}',${i})">🚫 رفض</button>
           </div>
         </div>`;
     }).join('');
   } catch (e) {
     el.innerHTML = '<div style="color:var(--danger);padding:16px">❌ خطأ: ' + escHtml(e.message) + '</div>';
+  }
+}
+
+function updatePendingBadge(n) {
+  const badge  = document.getElementById('pendingBadge');
+  const bnavBadge = document.getElementById('bnav-pending-badge');
+  if (n > 0) {
+    badge.textContent = n; badge.style.display = 'inline-block';
+    bnavBadge.textContent = n; bnavBadge.style.display = 'block';
+  } else {
+    badge.style.display = 'none';
+    bnavBadge.style.display = 'none';
   }
 }
 
@@ -883,16 +1034,13 @@ async function acceptPendingOne(threadID, idx) {
   if (r.ok) {
     showAlert('pending-ok', '✅ تم قبول الطلب بنجاح');
     if (item) item.remove();
-    _pendingList = _pendingList.filter((_, i) => i !== idx);
-    const badge = document.getElementById('pendingBadge');
     const remaining = document.querySelectorAll('[id^="pitem-"]').length;
+    updatePendingBadge(remaining);
     if (remaining === 0) {
-      badge.style.display = 'none';
       document.getElementById('pendingList').innerHTML =
         '<div style="text-align:center;padding:40px;color:var(--text3)"><div style="font-size:40px;margin-bottom:10px">✅</div><div>لا توجد طلبات مراسلة معلقة</div></div>';
       document.getElementById('pendingStats').textContent = '';
     } else {
-      badge.textContent = remaining;
       document.getElementById('pendingStats').textContent = '📩 ' + remaining + ' طلب معلق';
     }
   } else {
@@ -908,15 +1056,13 @@ async function rejectPendingOne(threadID, idx) {
   if (r.ok) {
     showAlert('pending-ok', '✅ تم رفض الطلب');
     if (item) item.remove();
-    const badge = document.getElementById('pendingBadge');
     const remaining = document.querySelectorAll('[id^="pitem-"]').length;
+    updatePendingBadge(remaining);
     if (remaining === 0) {
-      badge.style.display = 'none';
       document.getElementById('pendingList').innerHTML =
         '<div style="text-align:center;padding:40px;color:var(--text3)"><div style="font-size:40px;margin-bottom:10px">✅</div><div>لا توجد طلبات مراسلة معلقة</div></div>';
       document.getElementById('pendingStats').textContent = '';
     } else {
-      badge.textContent = remaining;
       document.getElementById('pendingStats').textContent = '📩 ' + remaining + ' طلب معلق';
     }
   } else {
@@ -938,13 +1084,206 @@ async function acceptAllPending() {
   }
 }
 
+// ── Nick & Groups page ────────────────────────────────────────
+function loadNickPage() {
+  loadNickSpeed();
+}
+
+// Group name
+async function setGroupName() {
+  const threadID = document.getElementById('gn-thread').value.trim();
+  const name     = document.getElementById('gn-name').value.trim();
+  const protect  = document.getElementById('gn-protect').checked;
+  if (!threadID || !name) return showAlert('ng-err', '❌ معرف المجموعة والاسم مطلوبان');
+  const r = await POST('/dash/groupname/set', { threadID, name, protect });
+  if (r.ok) {
+    showAlert('ng-ok', '✅ تم تعيين اسم المجموعة' + (r.protected ? ' وتثبيته 🔒' : ''));
+  } else {
+    showAlert('ng-err', '❌ ' + (r.error || 'فشل التعيين'));
+  }
+}
+
+async function removeGroupProtect() {
+  const threadID = document.getElementById('gn-thread').value.trim();
+  if (!threadID) return showAlert('ng-err', '❌ أدخل معرف المجموعة');
+  const r = await POST('/dash/groupprotect/remove', { threadID });
+  r.ok ? showAlert('ng-ok', '🔓 تم إزالة حماية اسم المجموعة') : showAlert('ng-err', '❌ ' + r.error);
+}
+
+// Single nick
+async function setOneNick() {
+  const threadID = document.getElementById('sn-thread').value.trim();
+  const userID   = document.getElementById('sn-uid').value.trim();
+  const nick     = document.getElementById('sn-nick').value.trim();
+  if (!threadID || !userID) return showAlert('ng-err', '❌ معرف المجموعة والعضو مطلوبان');
+  const r = await POST('/dash/nickname/set', { threadID, userID, nick });
+  if (r.ok) {
+    showAlert('ng-ok', nick ? '✅ تم تعيين الكنية' : '✅ تم مسح الكنية');
+  } else {
+    showAlert('ng-err', '❌ ' + (r.error || 'فشل التعيين'));
+  }
+}
+
+// Bulk nicks
+async function setAllNicks() {
+  const threadID = document.getElementById('bn-thread').value.trim();
+  const nick     = document.getElementById('bn-nick').value.trim();
+  if (!threadID) return showAlert('ng-err', '❌ معرف المجموعة مطلوب');
+  const delay      = parseInt(document.getElementById('ns-delay').value)  || 3000;
+  const batchSize  = parseInt(document.getElementById('ns-batch').value)  || 5;
+  const batchDelay = parseInt(document.getElementById('ns-bdel').value)   || 12000;
+  const r = await POST('/dash/nickname/set-all', { threadID, nick, delay, batchSize, batchDelay });
+  if (r.ok) {
+    showAlert('ng-ok', '🚀 بدأت العملية في الخلفية');
+    document.getElementById('ng-job-progress').style.display = 'block';
+    document.getElementById('ng-job-warn').classList.add('show');
+    startNickJobPoll();
+  } else {
+    showAlert('ng-err', '❌ ' + (r.error || 'فشل بدء العملية'));
+  }
+}
+
+function startNickJobPoll() {
+  if (nickJobTimer) clearInterval(nickJobTimer);
+  nickJobTimer = setInterval(pollNickJob, 2000);
+}
+
+async function pollNickJob() {
+  try {
+    const j = await GET('/dash/nickname/job');
+    document.getElementById('ng-job-progress').style.display = 'block';
+    const pct = j.total > 0 ? Math.round(((j.done + j.fail + j.skipped) / j.total) * 100) : 0;
+    document.getElementById('ng-job-bar').style.width = pct + '%';
+    document.getElementById('ng-job-pct').textContent = pct + '%';
+    document.getElementById('ng-done').textContent   = j.done;
+    document.getElementById('ng-fail').textContent   = j.fail;
+    document.getElementById('ng-skip').textContent   = j.skipped;
+    document.getElementById('ng-job-label').textContent = j.running
+      ? ('⏳ ' + (j.done + j.fail + j.skipped) + ' / ' + (j.total || '?'))
+      : '✅ اكتملت العملية';
+    if (j.log && j.log.length) {
+      document.getElementById('ng-job-log').innerHTML =
+        j.log.slice(-30).map(l => '<div>' + escHtml(l) + '</div>').join('');
+      document.getElementById('ng-job-log').scrollTop = 9999;
+    }
+    if (!j.running && nickJobTimer) {
+      clearInterval(nickJobTimer);
+      nickJobTimer = null;
+    }
+  } catch {}
+}
+
+// Nick speed
+async function loadNickSpeed() {
+  try {
+    const s = await GET('/dash/nickspeed');
+    document.getElementById('ns-delay').value    = s.nickDelay      || 3000;
+    document.getElementById('ns-batch').value    = s.nickBatchSize  || 5;
+    document.getElementById('ns-bdel').value     = s.nickBatchDelay || 12000;
+    document.getElementById('ns-delay-val').textContent = (s.nickDelay      || 3000) + 'ms';
+    document.getElementById('ns-batch-val').textContent = (s.nickBatchSize  || 5);
+    document.getElementById('ns-bdel-val').textContent  = (s.nickBatchDelay || 12000) + 'ms';
+  } catch {}
+}
+async function saveNickSpeed() {
+  const body = {
+    nickDelay:      parseInt(document.getElementById('ns-delay').value),
+    nickBatchSize:  parseInt(document.getElementById('ns-batch').value),
+    nickBatchDelay: parseInt(document.getElementById('ns-bdel').value),
+  };
+  const r = await POST('/dash/nickspeed', body);
+  r.ok ? showAlert('ng-ok', '✅ تم حفظ إعدادات السرعة') : showAlert('ng-err', '❌ ' + r.error);
+}
+
+// Protected nicks list
+async function loadProtectedNicks() {
+  const threadID = document.getElementById('pn-thread').value.trim();
+  const url = '/dash/nickprotect' + (threadID ? '?threadID=' + encodeURIComponent(threadID) : '');
+  const list = await GET(url).catch(() => []);
+  const el = document.getElementById('protectedNickList');
+  if (!list.length) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:16px">لا توجد كنى محمية</div>';
+    return;
+  }
+  el.innerHTML = list.map(item => `
+    <div class="protect-item">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600">${escHtml(item.nick || '(بدون كنية)')}</div>
+        <div class="protect-uid">${escHtml(item.uid)}${item.threadID ? ' — ' + escHtml(item.threadID) : ''}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="removeNickProtect('${escHtml(item.threadID||threadID)}','${escHtml(item.uid)}')">🔓</button>
+    </div>`).join('');
+}
+
+async function addNickProtect() {
+  const threadID = document.getElementById('pn-add-thread').value.trim();
+  const userID   = document.getElementById('pn-add-uid').value.trim();
+  const nick     = document.getElementById('pn-add-nick').value.trim();
+  if (!threadID || !userID) return showAlert('ng-err', '❌ Thread ID و User ID مطلوبان');
+  const r = await POST('/dash/nickprotect/add', { threadID, userID, nick });
+  if (r.ok) {
+    showAlert('ng-ok', '🔒 تم تثبيت الكنية: ' + (r.nick || '(فارغة)'));
+    document.getElementById('pn-add-thread').value = '';
+    document.getElementById('pn-add-uid').value = '';
+    document.getElementById('pn-add-nick').value = '';
+    loadProtectedNicks();
+  } else {
+    showAlert('ng-err', '❌ ' + r.error);
+  }
+}
+
+async function removeNickProtect(threadID, userID) {
+  const r = await POST('/dash/nickprotect/remove', { threadID, userID });
+  if (r.ok) { showAlert('ng-ok', '🔓 تم رفع الحماية'); loadProtectedNicks(); }
+  else showAlert('ng-err', '❌ ' + r.error);
+}
+
+// Protected groups list
+async function loadProtectedGroups() {
+  const list = await GET('/dash/groupprotect').catch(() => []);
+  const el = document.getElementById('protectedGroupList');
+  if (!list.length) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:16px">لا توجد مجموعات محمية</div>';
+    return;
+  }
+  el.innerHTML = list.map(item => `
+    <div class="protect-item">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600">🏷 ${escHtml(item.name)}</div>
+        <div class="protect-uid">${escHtml(item.threadID)}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="removeGroupProtectById('${escHtml(item.threadID)}')">🔓</button>
+    </div>`).join('');
+}
+
+async function addGroupProtect() {
+  const threadID = document.getElementById('pg-add-thread').value.trim();
+  const name     = document.getElementById('pg-add-name').value.trim();
+  if (!threadID || !name) return showAlert('ng-err', '❌ Thread ID والاسم مطلوبان');
+  const r = await POST('/dash/groupprotect/set', { threadID, name });
+  if (r.ok) {
+    showAlert('ng-ok', '🔒 تم تثبيت اسم المجموعة');
+    document.getElementById('pg-add-thread').value = '';
+    document.getElementById('pg-add-name').value = '';
+    loadProtectedGroups();
+  } else {
+    showAlert('ng-err', '❌ ' + r.error);
+  }
+}
+
+async function removeGroupProtectById(threadID) {
+  const r = await POST('/dash/groupprotect/remove', { threadID });
+  if (r.ok) { showAlert('ng-ok', '🔓 تم رفع حماية الاسم'); loadProtectedGroups(); }
+  else showAlert('ng-err', '❌ ' + r.error);
+}
+
 // ── Helpers ───────────────────────────────────────────────────
 function showAlert(id, msg) {
   const el = document.getElementById(id);
   if (!el) return;
   el.textContent = msg;
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 4000);
+  setTimeout(() => el.classList.remove('show'), 5000);
 }
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
