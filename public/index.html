@@ -185,6 +185,7 @@ body.ltr .hamburger{right:auto;left:12px}
     <div class="nav-item" onclick="goPage('cookies')" data-page="cookies"><span class="icon">🍪</span><span id="n-cookies">الكوكيز</span></div>
     <div class="nav-item" onclick="goPage('admins')" data-page="admins"><span class="icon">👥</span><span id="n-admins">المشرفون</span></div>
     <div class="nav-item" onclick="goPage('automsg')" data-page="automsg"><span class="icon">📨</span><span id="n-automsg">رسائل تلقائية</span></div>
+    <div class="nav-item" onclick="goPage('pending')" data-page="pending"><span class="icon">📩</span><span id="n-pending">طلبات المراسلة</span> <span id="pendingBadge" style="display:none;background:var(--danger);color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;margin-right:auto"></span></div>
     <div class="nav-item" onclick="goPage('logs')" data-page="logs"><span class="icon">📋</span><span id="n-logs">السجلات</span></div>
     <div class="nav-item" onclick="goPage('broadcast')" data-page="broadcast"><span class="icon">📡</span><span id="n-broadcast">البث</span></div>
     <div class="nav-item" onclick="goPage('devtools')" data-page="devtools"><span class="icon">🛠️</span><span id="n-devtools">أدوات المطور</span></div>
@@ -359,6 +360,31 @@ body.ltr .hamburger{right:auto;left:12px}
       <div class="card-title" id="t-log-filter-title">فلترة السجلات المتقدمة</div>
       <div class="form-group"><label id="t-search-label">بحث في السجلات</label><input id="logSearch" placeholder="كلمة أو عبارة للبحث..." oninput="filterLogs()"></div>
       <div class="log-box" id="filteredLogs" style="height:200px">اكتب للبحث...</div>
+    </div>
+  </div>
+</div>
+
+<!-- Pending Requests -->
+<div class="page" id="page-pending">
+  <div class="header-bar">
+    <div>
+      <div class="page-title">طلبات المراسلة المعلقة</div>
+      <div class="page-sub">اقبل أو ارفض طلبات المراسلة الواردة لحساب البوت</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-ghost btn-sm" onclick="loadPending()">🔄 تحديث</button>
+      <button class="btn btn-success btn-sm" onclick="acceptAllPending()" id="acceptAllBtn">✅ قبول الكل</button>
+    </div>
+  </div>
+  <div class="alert alert-success" id="pending-ok" style="margin-bottom:12px"></div>
+  <div class="alert alert-error" id="pending-err" style="margin-bottom:12px"></div>
+  <div class="card">
+    <div id="pendingStats" style="font-size:12px;color:var(--text3);margin-bottom:14px"></div>
+    <div id="pendingList">
+      <div style="text-align:center;padding:32px;color:var(--text3)">
+        <div style="font-size:32px;margin-bottom:8px">📩</div>
+        <div>اضغط تحديث لتحميل الطلبات</div>
+      </div>
     </div>
   </div>
 </div>
@@ -563,6 +589,7 @@ function goPage(id) {
   if (id === 'automsg') loadAutoMsgs();
   if (id === 'config')  loadConfig();
   if (id === 'devtools') loadDevTools();
+  if (id === 'pending') loadPending();
 }
 
 function toggleSidebar() {
@@ -792,6 +819,123 @@ async function saveConfig() {
   if (tok) body.dashboardToken = tok;
   const r = await POST('/dash/config', body);
   r.ok ? showAlert('cfg-ok', '✅ تم الحفظ') : showAlert('cfg-err', r.error);
+}
+
+// ── Pending Message Requests ──────────────────────────────────
+let _pendingList = [];
+
+async function loadPending() {
+  const el = document.getElementById('pendingList');
+  const stats = document.getElementById('pendingStats');
+  el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3)">⏳ جاري التحميل...</div>';
+  try {
+    const list = await GET('/dash/pending');
+    _pendingList = list;
+    const badge = document.getElementById('pendingBadge');
+    if (list.length > 0) {
+      badge.textContent = list.length;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+    if (!list.length) {
+      stats.textContent = '';
+      el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3)"><div style="font-size:40px;margin-bottom:10px">✅</div><div>لا توجد طلبات مراسلة معلقة</div></div>';
+      return;
+    }
+    stats.textContent = '📩 ' + list.length + ' طلب معلق';
+    el.innerHTML = list.map((t, i) => {
+      const name     = escHtml(t.name || (t.isGroup ? 'مجموعة بدون اسم' : 'محادثة خاصة'));
+      const snippet  = t.snippet ? escHtml(t.snippet.slice(0, 60)) : '';
+      const type     = t.isGroup ? '<span class="badge badge-blue">مجموعة</span>' : '<span class="badge badge-green">خاص</span>';
+      const ts       = t.timestamp ? new Date(t.timestamp).toLocaleString('ar-SA') : '';
+      const members  = t.participants && t.participants.length
+        ? '<div style="font-size:11px;color:var(--text3);margin-top:4px">👥 ' + t.participants.map(p => escHtml(p.name || p.id)).join('، ') + '</div>'
+        : '';
+      return `
+        <div id="pitem-${i}" style="display:flex;align-items:flex-start;gap:12px;padding:14px 12px;border-bottom:1px solid var(--border);transition:opacity .3s">
+          <div style="font-size:28px;flex-shrink:0">${t.isGroup ? '👥' : '💬'}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="font-weight:600;font-size:14px">${name}</span>
+              ${type}
+              <span style="font-size:11px;color:var(--text3);margin-right:auto">${ts}</span>
+            </div>
+            ${snippet ? '<div style="font-size:12px;color:var(--text2);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + snippet + '</div>' : ''}
+            <div style="font-family:monospace;font-size:10px;color:var(--text3);margin-top:2px">${escHtml(t.threadID)}</div>
+            ${members}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+            <button class="btn btn-success btn-sm" onclick="acceptPendingOne('${escHtml(t.threadID)}', ${i})">✅ قبول</button>
+            <button class="btn btn-danger btn-sm" onclick="rejectPendingOne('${escHtml(t.threadID)}', ${i})">🚫 رفض</button>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (e) {
+    el.innerHTML = '<div style="color:var(--danger);padding:16px">❌ خطأ: ' + escHtml(e.message) + '</div>';
+  }
+}
+
+async function acceptPendingOne(threadID, idx) {
+  const item = document.getElementById('pitem-' + idx);
+  if (item) item.style.opacity = '0.4';
+  const r = await POST('/dash/pending/accept', { threadID });
+  if (r.ok) {
+    showAlert('pending-ok', '✅ تم قبول الطلب بنجاح');
+    if (item) item.remove();
+    _pendingList = _pendingList.filter((_, i) => i !== idx);
+    const badge = document.getElementById('pendingBadge');
+    const remaining = document.querySelectorAll('[id^="pitem-"]').length;
+    if (remaining === 0) {
+      badge.style.display = 'none';
+      document.getElementById('pendingList').innerHTML =
+        '<div style="text-align:center;padding:40px;color:var(--text3)"><div style="font-size:40px;margin-bottom:10px">✅</div><div>لا توجد طلبات مراسلة معلقة</div></div>';
+      document.getElementById('pendingStats').textContent = '';
+    } else {
+      badge.textContent = remaining;
+      document.getElementById('pendingStats').textContent = '📩 ' + remaining + ' طلب معلق';
+    }
+  } else {
+    if (item) item.style.opacity = '1';
+    showAlert('pending-err', '❌ ' + (r.error || 'فشل القبول'));
+  }
+}
+
+async function rejectPendingOne(threadID, idx) {
+  const item = document.getElementById('pitem-' + idx);
+  if (item) item.style.opacity = '0.4';
+  const r = await POST('/dash/pending/reject', { threadID });
+  if (r.ok) {
+    showAlert('pending-ok', '✅ تم رفض الطلب');
+    if (item) item.remove();
+    const badge = document.getElementById('pendingBadge');
+    const remaining = document.querySelectorAll('[id^="pitem-"]').length;
+    if (remaining === 0) {
+      badge.style.display = 'none';
+      document.getElementById('pendingList').innerHTML =
+        '<div style="text-align:center;padding:40px;color:var(--text3)"><div style="font-size:40px;margin-bottom:10px">✅</div><div>لا توجد طلبات مراسلة معلقة</div></div>';
+      document.getElementById('pendingStats').textContent = '';
+    } else {
+      badge.textContent = remaining;
+      document.getElementById('pendingStats').textContent = '📩 ' + remaining + ' طلب معلق';
+    }
+  } else {
+    if (item) item.style.opacity = '1';
+    showAlert('pending-err', '❌ ' + (r.error || 'فشل الرفض'));
+  }
+}
+
+async function acceptAllPending() {
+  const btn = document.getElementById('acceptAllBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري القبول...'; }
+  const r = await POST('/dash/pending/accept-all', {});
+  if (btn) { btn.disabled = false; btn.textContent = '✅ قبول الكل'; }
+  if (r.ok) {
+    showAlert('pending-ok', '✅ تم! قُبل: ' + r.accepted + ' | فشل: ' + r.failed + ' / ' + r.total);
+    loadPending();
+  } else {
+    showAlert('pending-err', '❌ ' + (r.error || 'فشل القبول الجماعي'));
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────
