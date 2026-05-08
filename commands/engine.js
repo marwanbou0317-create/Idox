@@ -1,54 +1,84 @@
-// محرك الرسائل — generation counter يضمن سلسلة واحدة فقط
+// محركان مستقلان: عادي (يرسل دائماً) وذكي (يرسل عند نشاط فقط)
 const log = require('../utils/logger');
 
 let botApi = null;
-let gen    = 0;
+const activity = new Set(); // مشترك بين المحركين
 
-const state = {
-  on:       false,
-  message:  'مرحباً! 👋',
-  seconds:  60,
-  smart:    false,
-  thread:   null,
-  activity: new Set(),   // المجموعات التي شهدت نشاطاً
-};
+function setApi(api)           { botApi = api; }
+function markActivity(tid)     { activity.add(String(tid)); }
 
-function setApi(api) { botApi = api; }
-function markActivity(threadID) { state.activity.add(String(threadID)); }
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-function _loop(myGen) {
-  if (!state.on || gen !== myGen || !botApi || !state.thread) return;
-  const base  = state.seconds * 1000;
-  const delay = Math.round(base * 0.8 + Math.random() * base * 0.4); // ±20%
-  setTimeout(() => {
-    if (!state.on || gen !== myGen || !botApi || !state.thread) return;
-    if (state.smart && !state.activity.has(state.thread)) {
-      _loop(myGen); return;
+// ── مصنع المحركات ────────────────────────────────────────────
+function makeEngine(name, smartMode) {
+  let gen = 0;
+  const st = {
+    on:       false,
+    message:  null,
+    seconds:  30,
+    isRandom: false,
+    minSec:   25,
+    maxSec:   45,
+    thread:   null,
+    lastSent: null,
+    nextAt:   null,
+  };
+
+  function getDelay() {
+    if (st.isRandom) {
+      return (st.minSec + Math.random() * (st.maxSec - st.minSec)) * 1000;
     }
-    state.activity.delete(state.thread);
-    botApi.sendMessage(state.message, state.thread, err => {
-      if (err) log.error('Engine: ' + JSON.stringify(err));
-      _loop(myGen);
-    });
-  }, delay);
+    const base = st.seconds * 1000;
+    return Math.round(base * 0.8 + Math.random() * base * 0.4);
+  }
+
+  function loop(myGen) {
+    if (!st.on || gen !== myGen || !botApi || !st.thread) return;
+    const delay = getDelay();
+    st.nextAt = Date.now() + delay;
+    setTimeout(() => {
+      if (!st.on || gen !== myGen || !botApi || !st.thread) return;
+      if (smartMode && !activity.has(st.thread)) {
+        loop(myGen); return;
+      }
+      activity.delete(st.thread);
+      st.lastSent = Date.now();
+      st.nextAt   = null;
+      botApi.sendMessage(st.message || '👋', st.thread, err => {
+        if (err) log.error(name + ': ' + JSON.stringify(err));
+        loop(myGen);
+      });
+    }, delay);
+  }
+
+  const eng = {
+    start(thread) {
+      gen++;
+      st.on = true;
+      if (thread) st.thread = String(thread);
+      loop(gen);
+    },
+    stop()              { gen++; st.on = false; st.nextAt = null; },
+    setMessage(msg)     { st.message = msg; },
+    setTime(sec)        { st.seconds = sec; st.isRandom = false; if (st.on) eng.restart(); },
+    setRandom(min, max) { st.minSec = min; st.maxSec = max; st.isRandom = true; if (st.on) eng.restart(); },
+    restart()           { if (st.on) { gen++; loop(gen); } },
+    isOn()              { return st.on; },
+    getState()          { return { ...st }; },
+  };
+  return eng;
 }
 
-function start(thread) {
-  gen++;                           // يُبطل أي سلسلة قديمة تلقائياً
-  state.on     = true;
-  state.thread = thread || state.thread;
-  _loop(gen);
-}
+// ── المحركان ──────────────────────────────────────────────────
+const normal = makeEngine('NormalEngine', false);
+const smart  = makeEngine('SmartEngine',  true);
 
-function stop() {
-  gen++;
-  state.on = false;
-}
-
-function fmt(s) {
+// ── أمر /محرك (متوافق مع الإصدار القديم يعمل على المحرك العادي) ──
+function fmtSec(s) {
+  if (!s) return '—';
   if (s < 60)   return s + 'ث';
-  if (s < 3600) return Math.floor(s/60) + 'د';
-  return Math.floor(s/3600) + 'س';
+  if (s < 3600) return Math.floor(s / 60) + 'د';
+  return Math.floor(s / 3600) + 'س';
 }
 
 function handle(event, api, args) {
@@ -56,78 +86,74 @@ function handle(event, api, args) {
   const sub = (args[0] || '').toLowerCase();
 
   if (!sub) {
-    if (state.on) { stop(); return api.sendMessage('🔴 المحرك متوقف.', threadID); }
-    start(threadID);
+    if (normal.isOn()) { normal.stop(); return api.sendMessage('🔴 المحرك العادي متوقف.', threadID); }
+    normal.start(threadID);
+    const ns = normal.getState();
     return api.sendMessage(
-      '🟢 المحرك يعمل!\n⏱ كل ~' + fmt(state.seconds) + ' (±20%)\n💬 ' + state.message +
-      '\n🧠 الذكي: ' + (state.smart ? 'مفعّل' : 'موقوف'), threadID);
+      '🟢 المحرك العادي يعمل!\n⏱ كل ~' + fmtSec(ns.seconds) + ' (±20%)\n💬 ' + (ns.message || '(لم تُضبط رسالة)'), threadID);
   }
 
   if (sub === 'رسالة' || sub === 'msg') {
     const txt = args.slice(1).join(' ').trim();
     if (!txt) return api.sendMessage('❗ مثال: /محرك رسالة نص الرسالة', threadID);
-    state.message = txt;
-    if (state.on) start(); // إعادة تشغيل بالرسالة الجديدة
+    normal.setMessage(txt);
+    if (normal.isOn()) normal.restart();
     return api.sendMessage('✅ الرسالة: "' + txt + '"', threadID);
   }
 
   if (sub === 'وقت' || sub === 'time') {
     const s = parseInt(args[1]);
     if (isNaN(s) || s < 10) return api.sendMessage('❗ الحد الأدنى 10ث\nمثال: /محرك وقت 30', threadID);
-    state.seconds = s;
-    if (state.on) start(); // إعادة تشغيل بالوقت الجديد
-    return api.sendMessage('✅ الوقت: ~' + fmt(s) + ' (±20%)', threadID);
+    normal.setTime(s);
+    return api.sendMessage('✅ الوقت: ~' + fmtSec(s) + ' (±20%)', threadID);
   }
 
   if (sub === 'الذكي' || sub === 'smart') {
-    state.smart = !state.smart;
-    return api.sendMessage(state.smart
-      ? '🧠 الوضع الذكي مفعّل — يرسل فقط عند وجود نشاط.'
-      : '🧠 الوضع الذكي موقوف.', threadID);
+    if (smart.isOn()) { smart.stop(); return api.sendMessage('⚫ المحرك الذكي متوقف.', threadID); }
+    smart.start(threadID);
+    return api.sendMessage('🧠 المحرك الذكي مفعّل — يرسل عند وجود نشاط.', threadID);
   }
 
   if (sub === 'تشغيل' || sub === 'on') {
-    if (state.on) return api.sendMessage('⚠️ المحرك يعمل بالفعل.', threadID);
-    start(threadID);
-    return api.sendMessage('🟢 المحرك يعمل!', threadID);
+    if (normal.isOn()) return api.sendMessage('⚠️ المحرك العادي يعمل بالفعل.', threadID);
+    normal.start(threadID);
+    return api.sendMessage('🟢 المحرك العادي يعمل!', threadID);
   }
 
   if (sub === 'إيقاف' || sub === 'ايقاف' || sub === 'off') {
-    if (!state.on) return api.sendMessage('⚠️ المحرك متوقف بالفعل.', threadID);
-    stop();
-    return api.sendMessage('🔴 المحرك متوقف.', threadID);
+    if (!normal.isOn()) return api.sendMessage('⚠️ المحرك العادي متوقف بالفعل.', threadID);
+    normal.stop();
+    return api.sendMessage('🔴 المحرك العادي متوقف.', threadID);
   }
 
   if (sub === 'حالة' || sub === 'status') {
+    const ns = normal.getState();
+    const ss = smart.getState();
     return api.sendMessage(
-      '📊 المحرك:\n▪ ' + (state.on ? '🟢 يعمل' : '🔴 متوقف') +
-      '\n▪ الرسالة: ' + state.message +
-      '\n▪ الوقت: ~' + fmt(state.seconds) + ' (±20%)' +
-      '\n▪ الذكي: ' + (state.smart ? '✅' : '❌') +
-      '\n▪ المجموعة: ' + (state.thread || 'غير محدد'), threadID);
+      '📊 المحركات:\n' +
+      '📍 العادي: ' + (ns.on ? '🟢 يعمل' : '🔴 متوقف') +
+      '\n   💬 ' + (ns.message || '—') + ' · ⏱ ' + fmtSec(ns.seconds) +
+      '\n📍 الذكي: ' + (ss.on ? '🟢 يعمل' : '⚫ متوقف') +
+      '\n   💬 ' + (ss.message || '—') + ' · ⏱ ' + fmtSec(ss.seconds), threadID);
   }
 
   return api.sendMessage(
-    '/محرك — تشغيل/إيقاف\n' +
+    '/محرك — تشغيل/إيقاف العادي\n' +
     '/محرك رسالة [نص]\n' +
     '/محرك وقت [ثواني]\n' +
-    '/محرك الذكي\n' +
-    '/محرك حالة', threadID);
+    '/محرك الذكي — تشغيل/إيقاف الذكي\n' +
+    '/محرك حالة\n\n' +
+    '💡 للتحكم الكامل استخدم /قائمة', threadID);
 }
 
+// ── exports ────────────────────────────────────────────────────
 function getState() {
-  return {
-    on:      state.on,
-    message: state.message,
-    seconds: state.seconds,
-    smart:   state.smart,
-    thread:  state.thread,
-  };
+  const ns = normal.getState();
+  return { on: ns.on, message: ns.message, seconds: ns.seconds, smart: smart.isOn(), thread: ns.thread };
 }
+function remoteStart(threadID) { normal.start(threadID || normal.getState().thread); }
+function remoteStop()          { normal.stop(); }
+function setMessage(msg)       { normal.setMessage(msg); if (normal.isOn()) normal.restart(); }
+function setSeconds(s)         { normal.setTime(s); }
 
-function remoteStart(threadID) { start(threadID || state.thread); }
-function remoteStop()          { stop(); }
-function setMessage(msg)       { state.message = msg; if (state.on) start(); }
-function setSeconds(s)         { state.seconds = s;   if (state.on) start(); }
-
-module.exports = { handle, setApi, markActivity, getState, remoteStart, remoteStop, setMessage, setSeconds };
+module.exports = { handle, setApi, markActivity, getState, remoteStart, remoteStop, setMessage, setSeconds, normal, smart };
