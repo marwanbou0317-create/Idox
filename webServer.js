@@ -41,6 +41,14 @@ function start() {
     next();
   };
 
+  function requireApi(res) {
+    if (!_state.api || !_state.online) {
+      res.status(503).json({ error: 'البوت غير متصل' });
+      return false;
+    }
+    return true;
+  }
+
   // ── Status ────────────────────────────────────────────────────────
   app.get('/dash/status', (req, res) => {
     const c = cfg();
@@ -116,7 +124,7 @@ function start() {
   app.post('/dash/send', auth, (req, res) => {
     const { threadID, message } = req.body;
     if (!threadID || !message) return res.status(400).json({ error: 'Missing threadID or message' });
-    if (!_state.api || !_state.online) return res.status(503).json({ error: 'Bot offline' });
+    if (!requireApi(res)) return;
     try {
       const r = _state.api.sendMessage(message, threadID);
       if (r && typeof r.then === 'function') r.catch(() => {});
@@ -172,8 +180,7 @@ function start() {
 
   // ── Pending message requests ──────────────────────────────────────
   app.get('/dash/pending', auth, async (req, res) => {
-    if (!_state.api || !_state.online)
-      return res.status(503).json({ error: 'البوت غير متصل' });
+    if (!requireApi(res)) return;
     try {
       const autoAccept = require('./commands/autoAccept');
       const list = await autoAccept.getPendingList(_state.api);
@@ -184,8 +191,7 @@ function start() {
   app.post('/dash/pending/accept', auth, async (req, res) => {
     const { threadID } = req.body;
     if (!threadID) return res.status(400).json({ error: 'Missing threadID' });
-    if (!_state.api || !_state.online)
-      return res.status(503).json({ error: 'البوت غير متصل' });
+    if (!requireApi(res)) return;
     try {
       const autoAccept = require('./commands/autoAccept');
       const r = await autoAccept.acceptOne(_state.api, threadID);
@@ -196,8 +202,7 @@ function start() {
   app.post('/dash/pending/reject', auth, async (req, res) => {
     const { threadID } = req.body;
     if (!threadID) return res.status(400).json({ error: 'Missing threadID' });
-    if (!_state.api || !_state.online)
-      return res.status(503).json({ error: 'البوت غير متصل' });
+    if (!requireApi(res)) return;
     try {
       const autoAccept = require('./commands/autoAccept');
       const r = await autoAccept.rejectOne(_state.api, threadID);
@@ -206,8 +211,7 @@ function start() {
   });
 
   app.post('/dash/pending/accept-all', auth, async (req, res) => {
-    if (!_state.api || !_state.online)
-      return res.status(503).json({ error: 'البوت غير متصل' });
+    if (!requireApi(res)) return;
     try {
       const autoAccept = require('./commands/autoAccept');
       const list = await autoAccept.getPendingList(_state.api);
@@ -218,6 +222,222 @@ function start() {
         await new Promise(x => setTimeout(x, 2000));
       }
       res.json({ ok: true, accepted, failed, total: list.length });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ── Nickname management ───────────────────────────────────────────
+  // Set nickname for a single member
+  app.post('/dash/nickname/set', auth, async (req, res) => {
+    const { threadID, userID, nick } = req.body;
+    if (!threadID || !userID) return res.status(400).json({ error: 'threadID و userID مطلوبان' });
+    if (!requireApi(res)) return;
+    try {
+      const nickProtect = require('./utils/nickProtect');
+      if (nickProtect.isProtected(threadID, String(userID)))
+        return res.status(403).json({ error: 'الكنية محمية — أزل الحماية أولاً' });
+      await _state.api.nickname(nick || '', threadID, String(userID));
+      pushLog('BOT', 'Dashboard: set nick for ' + userID + ' in ' + threadID);
+      res.json({ ok: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Set same nickname for ALL members (async — streams progress via polling)
+  const _nickJobStatus = { running: false, done: 0, total: 0, fail: 0, skipped: 0, log: [] };
+
+  app.get('/dash/nickname/job', auth, (req, res) => {
+    res.json({ ..._nickJobStatus });
+  });
+
+  app.post('/dash/nickname/set-all', auth, async (req, res) => {
+    if (_nickJobStatus.running)
+      return res.status(409).json({ error: 'يوجد عملية جارية بالفعل' });
+    const { threadID, nick, delay, batchSize, batchDelay } = req.body;
+    if (!threadID) return res.status(400).json({ error: 'threadID مطلوب' });
+    if (!requireApi(res)) return;
+
+    const nickMs      = Math.max(500, Number(delay)      || 3000);
+    const batch       = Math.max(1,   Number(batchSize)  || 5);
+    const batchMs     = Math.max(5000,Number(batchDelay) || 12000);
+
+    res.json({ ok: true, msg: 'بدأت العملية — تابع التقدم عبر /dash/nickname/job' });
+
+    // run in background
+    (async () => {
+      _nickJobStatus.running = true;
+      _nickJobStatus.done = _nickJobStatus.fail = _nickJobStatus.skipped = 0;
+      _nickJobStatus.log = [];
+      try {
+        const { getThread } = require('./_nick_helper');
+        const { setNick }   = require('./_nick_helper');
+        const nickProtect   = require('./utils/nickProtect');
+        const info = await getThread(_state.api, threadID);
+        const members = info && info.participantIDs ? info.participantIDs : [];
+        _nickJobStatus.total = members.length;
+
+        for (let i = 0; i < members.length; i++) {
+          const uid = String(members[i]);
+          if (nickProtect.isProtected(threadID, uid)) {
+            _nickJobStatus.skipped++;
+            _nickJobStatus.log.push('⏭ تجاهل (محمي): ' + uid);
+            continue;
+          }
+          if (i > 0 && i % batch === 0) {
+            await new Promise(r => setTimeout(r, batchMs));
+          } else if (i > 0) {
+            await new Promise(r => setTimeout(r, nickMs));
+          }
+          let ok = false;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            ok = await setNick(_state.api, nick || '', threadID, uid);
+            if (ok) break;
+            if (attempt < 2) await new Promise(r => setTimeout(r, 4000 * (attempt + 1)));
+          }
+          if (ok) {
+            _nickJobStatus.done++;
+            _nickJobStatus.log.push('✅ ' + uid);
+          } else {
+            _nickJobStatus.fail++;
+            _nickJobStatus.log.push('❌ فشل: ' + uid);
+          }
+          pushLog('BOT', 'set-all nick ' + _nickJobStatus.done + '/' + members.length);
+        }
+      } catch (e) {
+        _nickJobStatus.log.push('خطأ: ' + e.message);
+        pushLog('ERROR', 'set-all nick: ' + e.message);
+      } finally {
+        _nickJobStatus.running = false;
+      }
+    })();
+  });
+
+  // ── Group name management ─────────────────────────────────────────
+  // Set group name (with optional protection)
+  app.post('/dash/groupname/set', auth, async (req, res) => {
+    const { threadID, name, protect } = req.body;
+    if (!threadID || !name) return res.status(400).json({ error: 'threadID و name مطلوبان' });
+    if (!requireApi(res)) return;
+    try {
+      await _state.api.setTitle(name, threadID);
+      const groupProtect = require('./utils/groupNameProtect');
+      if (protect) {
+        groupProtect.protect(threadID, name);
+        pushLog('BOT', 'Dashboard: set+protect group name in ' + threadID);
+      } else {
+        if (groupProtect.isProtected(threadID)) groupProtect.unprotect(threadID);
+        pushLog('BOT', 'Dashboard: set group name in ' + threadID);
+      }
+      res.json({ ok: true, protected: !!protect });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ── Nick protection management ────────────────────────────────────
+  app.get('/dash/nickprotect', auth, (req, res) => {
+    try {
+      const nickProtect = require('./utils/nickProtect');
+      const { threadID } = req.query;
+      if (threadID) {
+        const list = nickProtect.listProtected(threadID);
+        return res.json(list.map(([uid, nick]) => ({ uid, nick })));
+      }
+      // return all (read raw file)
+      const FILE = path.join(__dirname, 'data', 'nickProtect.json');
+      const db = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE, 'utf8')) : {};
+      const result = [];
+      for (const [tid, members] of Object.entries(db)) {
+        for (const [uid, nick] of Object.entries(members)) {
+          result.push({ threadID: tid, uid, nick });
+        }
+      }
+      res.json(result);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/dash/nickprotect/add', auth, async (req, res) => {
+    const { threadID, userID, nick } = req.body;
+    if (!threadID || !userID) return res.status(400).json({ error: 'threadID و userID مطلوبان' });
+    try {
+      const nickProtect = require('./utils/nickProtect');
+      let resolvedNick = nick || '';
+      // If no nick provided and bot is online, fetch current nick
+      if (!resolvedNick && _state.api && _state.online) {
+        try {
+          const { getThread } = require('./_nick_helper');
+          const info = await getThread(_state.api, threadID);
+          resolvedNick = (info && info.nicknames && info.nicknames[userID]) || '';
+        } catch (_) {}
+      }
+      nickProtect.protect(threadID, String(userID), resolvedNick);
+      pushLog('BOT', 'Dashboard: protect nick for ' + userID);
+      res.json({ ok: true, nick: resolvedNick });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/dash/nickprotect/remove', auth, (req, res) => {
+    const { threadID, userID } = req.body;
+    if (!threadID || !userID) return res.status(400).json({ error: 'threadID و userID مطلوبان' });
+    try {
+      const nickProtect = require('./utils/nickProtect');
+      nickProtect.unprotect(threadID, String(userID));
+      pushLog('BOT', 'Dashboard: unprotect nick for ' + userID);
+      res.json({ ok: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ── Group name protection management ─────────────────────────────
+  app.get('/dash/groupprotect', auth, (req, res) => {
+    try {
+      const FILE = path.join(__dirname, 'data', 'groupNameProtect.json');
+      const db = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE, 'utf8')) : {};
+      const result = Object.entries(db).map(([tid, name]) => ({ threadID: tid, name }));
+      res.json(result);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/dash/groupprotect/set', auth, (req, res) => {
+    const { threadID, name } = req.body;
+    if (!threadID || !name) return res.status(400).json({ error: 'threadID و name مطلوبان' });
+    try {
+      const groupProtect = require('./utils/groupNameProtect');
+      groupProtect.protect(threadID, name);
+      pushLog('BOT', 'Dashboard: protect group name in ' + threadID);
+      res.json({ ok: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/dash/groupprotect/remove', auth, (req, res) => {
+    const { threadID } = req.body;
+    if (!threadID) return res.status(400).json({ error: 'threadID مطلوب' });
+    try {
+      const groupProtect = require('./utils/groupNameProtect');
+      groupProtect.unprotect(threadID);
+      pushLog('BOT', 'Dashboard: unprotect group name in ' + threadID);
+      res.json({ ok: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ── Nick speed settings ───────────────────────────────────────────
+  app.get('/dash/nickspeed', auth, (req, res) => {
+    try {
+      const c = cfg();
+      res.json({
+        nickDelay:      (c.antiban && c.antiban.nickDelay)      || 3000,
+        nickBatchSize:  (c.antiban && c.antiban.nickBatchSize)  || 5,
+        nickBatchDelay: (c.antiban && c.antiban.nickBatchDelay) || 12000,
+        tortureDelay:   (c.antiban && c.antiban.tortureDelay)   || 3500,
+      });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/dash/nickspeed', auth, (req, res) => {
+    try {
+      const cur = cfg();
+      if (!cur.antiban) cur.antiban = {};
+      if (req.body.nickDelay      != null) cur.antiban.nickDelay      = Math.max(500,  Number(req.body.nickDelay));
+      if (req.body.nickBatchSize  != null) cur.antiban.nickBatchSize  = Math.max(1,    Number(req.body.nickBatchSize));
+      if (req.body.nickBatchDelay != null) cur.antiban.nickBatchDelay = Math.max(5000, Number(req.body.nickBatchDelay));
+      fs.writeFileSync(CONFIG_PATH, JSON.stringify(cur, null, 2));
+      pushLog('BOT', 'Dashboard: updated nick speed settings');
+      res.json({ ok: true, antiban: cur.antiban });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
