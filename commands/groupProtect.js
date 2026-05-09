@@ -5,34 +5,53 @@ async function handle(event, api, args) {
   const { threadID } = event;
   const sub = (args[0] || '').trim().toLowerCase();
 
-  if (sub === '\u0625\u0644\u063a\u0627\u0621' || sub === '\u0627\u0644\u063a\u0627\u0621' || sub === 'unlock') {
+  if (sub === 'إلغاء' || sub === 'الغاء' || sub === 'off') {
     if (!protect.isProtected(threadID))
-      return api.sendMessage('\u2139\ufe0f \u0627\u0633\u0645 \u0627\u0644\u0645\u062c\u0645\u0648\u0639\u0629 \u063a\u064a\u0631 \u0645\u062d\u0645\u064a \u0623\u0635\u0644\u0627\u064b.', threadID);
+      return api.sendMessage('ℹ️ اسم المجموعة غيير محمي
+ℹ️ المجموعة غيير محم أصلاً.', threadID);
     protect.unprotect(threadID);
-    return api.sendMessage('\ud83d\udd13 \u062a\u0645 \u0625\u0644\u063a\u0627\u0621 \u062d\u0645\u0627\u064a\u0629 \u0627\u0633\u0645 \u0627\u0644\u0645\u062c\u0645\u0648\u0639\u0629.', threadID);
+    return api.sendMessage('🔓 تم إلغاء حماية اسم المجموعة.', threadID);
   }
 
-  if (sub === '\u0639\u0631\u0636' || sub === '\u062d\u0627\u0644\u0629' || sub === 'status') {
+  if (sub === 'حالة' || sub === 'عرض' || sub === 'status') {
     if (!protect.isProtected(threadID))
-      return api.sendMessage('\u2139\ufe0f \u0627\u0633\u0645 \u0627\u0644\u0645\u062c\u0645\u0648\u0639\u0629 \u063a\u064a\u0631 \u0645\u062d\u0645\u064a \u062d\u0627\u0644\u064a\u0627\u064b.', threadID);
-    return api.sendMessage('\ud83d\udd12 \u0627\u0633\u0645 \u0627\u0644\u0645\u062c\u0645\u0648\u0639\u0629 \u0645\u062d\u0645\u064a \u0648\u0645\u062b\u0628\u062a.', threadID);
+      return api.sendMessage('ℹ️ اسم المجموعة غير محمي حالياً.', threadID);
+    const name = protect.getProtected(threadID);
+    return api.sendMessage('🔒 اسم المجموعة محمي
+📌 الاسم المثبت: ' + name, threadID);
   }
 
   const name = args.join(' ').trim();
 
   if (!name)
     return api.sendMessage(
-      '\ud83d\udccc \u0627\u0644\u0627\u0633\u062a\u062e\u062f\u0627\u0645:\n' +
-      '/\u0627\u0633\u0645 [\u0627\u0644\u0627\u0633\u0645] \u2014 \u062a\u062b\u0628\u064a\u062a \u0627\u0633\u0645 \u0627\u0644\u0645\u062c\u0645\u0648\u0639\u0629\n' +
-      '/\u0627\u0633\u0645 \u0625\u0644\u063a\u0627\u0621 \u2014 \u0625\u0644\u063a\u0627\u0621 \u0627\u0644\u062d\u0645\u0627\u064a\u0629\n' +
-      '/\u0627\u0633\u0645 \u0639\u0631\u0636 \u2014 \u0639\u0631\u0636 \u0627\u0644\u062d\u0627\u0644\u0629',
-      threadID);
+      '📌 الاستخدام:
+' +
+      '/اسم [الاسم] — تغيير وتثبيت اسم المجموعة
+' +
+      '/اسم إلغاء — إلغاء الحماية
+' +
+      '/اسم حالة — عرض الحالة',
+      threadID
+    );
 
-  try { await api.setTitle(name, threadID); } catch (e) {
-    log.error('groupProtect set: ' + e.message);
+  try {
+    await api.setTitle(name, threadID);
+  } catch (e) {
+    log.error('groupProtect setTitle: ' + e.message);
+    return api.sendMessage('❌ فشل تغيير اسم المجموعة.', threadID);
   }
+
   protect.protect(threadID, name);
-  return api.sendMessage('\ud83d\udd12 \u062a\u0645 \u062a\u062b\u0628\u064a\u062a \u0627\u0633\u0645 \u0627\u0644\u0645\u062c\u0645\u0648\u0639\u0629.', threadID);
+  return api.sendMessage(
+    '🔒 تم تغيير اسم المجموعة وتثبيته
+' +
+    '📌 الاسم: ' + name + '
+
+' +
+    'أي محاولة لتغييره ستُستعاد تلقائياً خلال 5 ثواني.',
+    threadID
+  );
 }
 
 module.exports = { handle };
