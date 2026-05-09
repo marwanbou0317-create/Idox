@@ -1,46 +1,63 @@
-const log = require('../utils/logger');
+const protect = require('../utils/nickProtect');
+const log     = require('../utils/logger');
 
-// تخزين داخلي داخل نفس الملف
-const data = new Map();
+async function handle(event, api, args) {
+  const { threadID, mentions } = event;
+  const sub = (args[0] || '').trim().toLowerCase();
 
-module.exports = async function (event, api) {
-  const { threadID, logMessageType, logMessageData } = event;
+  if (sub === 'عرض' || sub === 'قائمة' || sub === 'list') {
+    const list = protect.listProtected(threadID);
+    if (!list.length)
+      return api.sendMessage('ℹ️ لا توجد كنيات محمية في هذه المجموعة.', threadID);
+    const lines = list.map(([uid, nick]) => '• ' + uid + ': ' + (nick || '(فارغة)')).join('
+');
+    return api.sendMessage('🔒 الكنيات المحمية:
+' + lines, threadID);
+  }
 
-  // حدث تغيير الكنية فقط
-  if (logMessageType !== "log:thread-nickname") return;
+  const mentionIDs = Object.keys(mentions || {});
 
-  const userID = logMessageData?.participant_id;
-  if (!userID) return;
+  if (!mentionIDs.length)
+    return api.sendMessage(
+      '📌 الاستخدام:
+' +
+      '/تثبيت @شخص [كنية] — تثبيت كنية شخص
+' +
+      '/تثبيت @شخص إلغاء — إلغاء حماية كنيته
+' +
+      '/تثبيت عرض — عرض جميع الكنيات المحمية',
+      threadID
+    );
 
-  const savedNick = data.get(threadID)?.[userID];
+  const uid = mentionIDs[0];
+  const mentionName = (mentions || {})[uid] || uid;
+  const rest = args.slice(1).join(' ').trim().toLowerCase();
 
-  // إذا غير محمي → لا شيء
-  if (!savedNick) return;
+  if (rest === 'إلغاء' || rest === 'الغاء') {
+    if (!protect.isProtected(threadID, uid))
+      return api.sendMessage('ℹ️ كنية ' + mentionName + ' غيير محمية أصلاً.', threadID);
+    protect.unprotect(threadID, uid);
+    return api.sendMessage('🔓 تم إلغاء حمية كنية ' + mentionName + '.', threadID);
+  }
+
+  const nick = args.slice(1).join(' ').trim();
 
   try {
-    await api.changeNickname(savedNick, threadID, userID);
+    if (nick) await api.changeNickname(nick, threadID, uid);
   } catch (e) {
-    log.error("nick guard error: " + e.message);
+    log.error('nickProtect changeNickname: ' + e.message);
   }
-};
 
+  protect.protect(threadID, uid, nick);
+  return api.sendMessage(
+    '🔒 تم تثبيت كنية ' + mentionName + '
+' +
+    '📌 الكنية: ' + (nick || '(فارغة)') + '
 
-// ===== دوال تستخدمها من أوامر البوت =====
+' +
+    'أي محاولة لتغييرها ستُستعاد تلقائياً خلال 5 ثواني.',
+    threadID
+  );
+}
 
-module.exports.protect = function (threadID, userID, nickname) {
-  if (!data.has(threadID)) data.set(threadID, {});
-  data.get(threadID)[userID] = nickname;
-};
-
-module.exports.unprotect = function (threadID, userID) {
-  if (!data.has(threadID)) return;
-  delete data.get(threadID)[userID];
-};
-
-module.exports.get = function (threadID, userID) {
-  return data.get(threadID)?.[userID];
-};
-
-module.exports.list = function (threadID) {
-  return Object.entries(data.get(threadID) || {});
-};
+module.exports = { handle };
