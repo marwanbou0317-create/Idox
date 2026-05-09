@@ -31,15 +31,19 @@ function start() {
   app.use(express.json({ limit: '2mb' }));
   app.use(express.static(PUBLIC_DIR));
 
+  // ── CORS: السماح لأي موقع بالوصول (بدون قيود) ─────────────────
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-token');
+    if (req.method === 'OPTIONS') return res.status(200).end();
+    next();
+  });
+
   const cfg = () => JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 
-  // ── Auth middleware ───────────────────────────────────────────────
-  const auth = (req, res, next) => {
-    const tok = req.headers['x-token'] || req.query.token;
-    const expected = cfg().dashboardToken || 'bot123';
-    if (tok !== expected) return res.status(401).json({ error: 'Unauthorized' });
-    next();
-  };
+  // ── بدون كلمة مرور — مفتوح للجميع ────────────────────────────
+  const auth = (req, res, next) => next();
 
   function requireApi(res) {
     if (!_state.api || !_state.online) {
@@ -226,7 +230,6 @@ function start() {
   });
 
   // ── Nickname management ───────────────────────────────────────────
-  // Set nickname for a single member
   app.post('/dash/nickname/set', auth, async (req, res) => {
     const { threadID, userID, nick } = req.body;
     if (!threadID || !userID) return res.status(400).json({ error: 'threadID و userID مطلوبان' });
@@ -241,7 +244,6 @@ function start() {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  // Set same nickname for ALL members (async — streams progress via polling)
   const _nickJobStatus = { running: false, done: 0, total: 0, fail: 0, skipped: 0, log: [] };
 
   app.get('/dash/nickname/job', auth, (req, res) => {
@@ -261,7 +263,6 @@ function start() {
 
     res.json({ ok: true, msg: 'بدأت العملية — تابع التقدم عبر /dash/nickname/job' });
 
-    // run in background
     (async () => {
       _nickJobStatus.running = true;
       _nickJobStatus.done = _nickJobStatus.fail = _nickJobStatus.skipped = 0;
@@ -311,7 +312,6 @@ function start() {
   });
 
   // ── Group name management ─────────────────────────────────────────
-  // Set group name (with optional protection)
   app.post('/dash/groupname/set', auth, async (req, res) => {
     const { threadID, name, protect } = req.body;
     if (!threadID || !name) return res.status(400).json({ error: 'threadID و name مطلوبان' });
@@ -339,7 +339,6 @@ function start() {
         const list = nickProtect.listProtected(threadID);
         return res.json(list.map(([uid, nick]) => ({ uid, nick })));
       }
-      // return all (read raw file)
       const FILE = path.join(__dirname, 'data', 'nickProtect.json');
       const db = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE, 'utf8')) : {};
       const result = [];
@@ -358,7 +357,6 @@ function start() {
     try {
       const nickProtect = require('./utils/nickProtect');
       let resolvedNick = nick || '';
-      // If no nick provided and bot is online, fetch current nick
       if (!resolvedNick && _state.api && _state.online) {
         try {
           const { getThread } = require('./_nick_helper');
