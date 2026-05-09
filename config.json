@@ -1,45 +1,62 @@
 {
   "prefix": "/",
   "botName": "Bot",
+
   "superAdmins": [
-   ,
     "61589569827440"
   ],
+
   "dashboardToken": "bot123",
+
   "reconnectDelay": 5000,
   "maxReconnectAttempts": 0,
+
   "listenEvents": true,
   "selfListen": false,
+
   "logLevel": "error",
+
   "online": true,
+
   "autoMarkRead": false,
   "autoMarkDelivery": false,
+
   "forceLogin": false,
 
   "cooldowns": {
-    "default":   5,
-    "تعذيب":    30,
-    "torture":   30,
-    "ابادة":    60,
-    "كنيات":    20,
+    "default": 5,
+
+    "تعذيب": 30,
+    "torture": 30,
+
+    "ابادة": 60,
+
+    "كنيات": 20,
     "nicknames": 20,
-    "كنية":     10,
-    "nickname":  10,
-    "تثبيت":    10,
+
+    "كنية": 10,
+    "nickname": 10,
+
+    "تثبيت": 10,
     "nickprotect": 10,
-    "اسم":      10,
+
+    "اسم": 10,
     "groupname": 10,
-    "رسائل":     8,
-    "automsg":   8
+
+    "رسائل": 8,
+    "automsg": 8
   },
 
   "antiban": {
-    "minDelay":        900,
-    "maxDelay":       2500,
-    "tortureDelay":   3500,
-    "abadDelay":      3000,
-    "nickDelay":      3000,
-    "nickBatchSize":     5,
+    "minDelay": 900,
+    "maxDelay": 2500,
+
+    "tortureDelay": 3500,
+    "abadDelay": 3000,
+
+    "nickDelay": 3000,
+
+    "nickBatchSize": 5,
     "nickBatchDelay": 12000
   }
 }
