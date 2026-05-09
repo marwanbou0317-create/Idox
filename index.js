@@ -314,7 +314,7 @@ async function startBot() {
                 } catch (e) {
                   log.error('nickProtect restore: ' + e.message);
                 }
-              }, 1500);
+              }, 5000);
             }
           }
         }
@@ -336,7 +336,7 @@ async function startBot() {
               } catch (e) {
                 log.error('groupProtect restore: ' + e.message);
               }
-            }, 1500);
+            }, 5000);
           }
         }
       }
