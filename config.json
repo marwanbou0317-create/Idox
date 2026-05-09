@@ -2,8 +2,8 @@
   "prefix": "/",
   "botName": "Bot",
   "superAdmins": [
-    "61588993301978",
-    "61588940413980"
+   ,
+    "61589569827440"
   ],
   "dashboardToken": "bot123",
   "reconnectDelay": 5000,
