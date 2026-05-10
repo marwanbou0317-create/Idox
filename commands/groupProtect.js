@@ -22,7 +22,6 @@ async function handle(event, api, args) {
   }
 
   const name = args.join(' ').trim();
-
   if (!name)
     return api.sendMessage(
       '\ud83d\udccc \u0627\u0644\u0627\u0633\u062a\u062e\u062f\u0627\u0645:\n' +
@@ -31,6 +30,11 @@ async function handle(event, api, args) {
       '/\u0627\u0633\u0645 \u062d\u0627\u0644\u0629 \u2014 \u0639\u0631\u0636 \u0627\u0644\u062d\u0627\u0644\u0629',
       threadID
     );
+
+  // ── CRITICAL: protect first so the event handler sees the new name ──
+  // If we set title first, the log:thread-name event fires before protect()
+  // is called, causing the protection system to immediately restore old name.
+  protect.protect(threadID, name);
 
   let ok = false;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -44,10 +48,11 @@ async function handle(event, api, args) {
     }
   }
 
-  if (!ok)
+  if (!ok) {
+    protect.unprotect(threadID);
     return api.sendMessage('\u274c \u0641\u0634\u0644 \u062a\u063a\u064a\u064a\u0631 \u0627\u0633\u0645 \u0627\u0644\u0645\u062c\u0645\u0648\u0639\u0629 \u0628\u0639\u062f 3 \u0645\u062d\u0627\u0648\u0644\u0627\u062a.', threadID);
+  }
 
-  protect.protect(threadID, name);
   return api.sendMessage(
     '\ud83d\udd12 \u062a\u0645 \u062a\u063a\u064a\u064a\u0631 \u0627\u0633\u0645 \u0627\u0644\u0645\u062c\u0645\u0648\u0639\u0629 \u0648\u062a\u062b\u0628\u064a\u062a\u0647\n' +
     '\ud83d\udccc \u0627\u0644\u0627\u0633\u0645: ' + name + '\n\n' +
