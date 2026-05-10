@@ -321,13 +321,11 @@ async function startBot() {
       }
 
       // ── حماية اسم الغروب: استعادة عند التغيير ───────────────
-      if (event.type === 'event' &&
-          (event.logMessageType === 'log:thread-name' ||
-           (event.logMessageData && 'name' in event.logMessageData))) {
-        const tid = event.threadID;
-        if (groupNameProtectUtils.isProtected(tid)) {
+      if (event.type === 'event' && event.logMessageType === 'log:thread-name') {
+        const tid     = event.threadID;
+        const newName = (event.logMessageData && event.logMessageData.name) || '';
+        if (newName && groupNameProtectUtils.isProtected(tid)) {
           const savedName = groupNameProtectUtils.getProtected(tid);
-          const newName   = event.logMessageData && event.logMessageData.name ? event.logMessageData.name : '';
           if (newName !== savedName) {
             setTimeout(async () => {
               try {
