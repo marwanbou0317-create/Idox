@@ -24,10 +24,11 @@ const server      = require('./commands/server');
 const help        = require('./commands/help');
 const abad        = require('./commands/abad');
 const torture     = require('./commands/torture');
-const autoAccept  = require('./commands/autoAccept');
-const menu        = require('./commands/menu');
-const AM          = require('./utils/autoMessages');
-const web         = require('./webServer');
+const autoAccept     = require('./commands/autoAccept');
+const autoGroupName  = require('./commands/autoGroupName');
+const menu           = require('./commands/menu');
+const AM             = require('./utils/autoMessages');
+const web            = require('./webServer');
 
 const APPSTATE = path.join(__dirname, 'appstate.json');
 const P        = config.prefix || '/';
@@ -168,6 +169,10 @@ async function onMessage(event, api) {
   if (cmd === 'اسم' || cmd === 'groupname') {
     if (!admin.isAdmin(senderID)) return adminOnly();
     return groupProtect.handle(event, api, args);
+  }
+  if (cmd === 'تعيين' || cmd === 'autoname') {
+    if (!admin.isAdmin(senderID)) return adminOnly();
+    return autoGroupName.handle(event, api, args);
   }
   if (cmd === 'رسائل' || cmd === 'automsg') {
     if (!admin.isAdmin(senderID)) return adminOnly();
