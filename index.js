@@ -94,6 +94,9 @@ async function onMessage(event, api) {
   resetWatchdog();
   const body = (event.body || '').trim();
 
+  // ── تحقق أولاً من أن body موجود وليس فارغ ────────────────────────
+  if (!body || typeof body !== 'string') return;
+
   // ── توجيه الجلسات (رسائل القائمة التفاعلية) ─────────────────────────
   // تُعالج أولاً إذا كانت الرسالة ليست أمراً وهناك جلسة نشطة للمستخدم
   if (!body.startsWith(P) && menu.hasSession(event.threadID, event.senderID)) {
