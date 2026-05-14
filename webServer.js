@@ -9,6 +9,14 @@ const PUBLIC_DIR     = path.join(__dirname, 'public');
 const MAX_LOGS = 300;
 const recentLogs = [];
 
+// ── أمان: الحصول على API Key من متغيرات البيئة ──────────────────
+const DASHBOARD_TOKEN = process.env.DASHBOARD_TOKEN || null;
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:4000').split(',');
+
+if (!DASHBOARD_TOKEN) {
+  console.warn('⚠️ تحذير: DASHBOARD_TOKEN غير معرّف. قم بتعيينه في متغيرات البيئة.');
+}
+
 function pushLog(level, msg) {
   recentLogs.push({ t: Date.now(), level, msg });
   if (recentLogs.length > MAX_LOGS) recentLogs.shift();
@@ -31,9 +39,12 @@ function start() {
   app.use(express.json({ limit: '2mb' }));
   app.use(express.static(PUBLIC_DIR));
 
-  // ── CORS: السماح لأي موقع بالوصول (بدون قيود) ─────────────────
+  // ── CORS: محدود لأصول معينة فقط ─────────────────────────────────
   app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
+    const origin = req.headers.origin || req.headers.host;
+    if (ALLOWED_ORIGINS.includes(origin) || ALLOWED_ORIGINS.includes('*')) {
+      res.header('Access-Control-Allow-Origin', origin);
+    }
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-token');
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -42,8 +53,23 @@ function start() {
 
   const cfg = () => JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 
-  // ── بدون كلمة مرور — مفتوح للجميع ────────────────────────────
-  const auth = (req, res, next) => next();
+  // ── المصادقة: تحقق من API Token ──────────────────────────────────
+  const auth = (req, res, next) => {
+    const token = req.headers['x-token'] || req.query.token || req.body.token;
+    
+    // إذا لم يكن هناك token معرّف، فالقفل مفعّل
+    if (!DASHBOARD_TOKEN) {
+      return res.status(503).json({ error: 'لم يتم تكوين نظام المصادقة بعد' });
+    }
+
+    // تحقق من التطابق
+    if (!token || token !== DASHBOARD_TOKEN) {
+      pushLog('SECURITY', 'محاولة وصول غير مصرح: ' + (req.ip || 'unknown'));
+      return res.status(401).json({ error: 'غير مصرح — Token غير صحيح أو مفقود' });
+    }
+
+    next();
+  };
 
   function requireApi(res) {
     if (!_state.api || !_state.online) {
@@ -51,6 +77,15 @@ function start() {
       return false;
     }
     return true;
+  }
+
+  // ── التحقق من صحة البيانات ───────────────────────────────────────
+  function validateID(id) {
+    return /^\d+$/.test(String(id));
+  }
+
+  function validateMessage(msg) {
+    return typeof msg === 'string' && msg.length > 0 && msg.length <= 4096;
   }
 
   // ── Status ────────────────────────────────────────────────────────
@@ -78,9 +113,13 @@ function start() {
   // ── Config read / write ───────────────────────────────────────────
   app.get('/dash/config', auth, (req, res) => {
     try {
-      const c = cfg(); delete c.dashboardToken;
+      const c = cfg();
+      delete c.dashboardToken;
       res.json(c);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+      pushLog('ERROR', 'config read: ' + e.message);
+      res.status(500).json({ error: e.message }); 
+    }
   });
 
   app.post('/dash/config', auth, (req, res) => {
@@ -89,8 +128,12 @@ function start() {
       const safe = { ...cur, ...req.body };
       safe.dashboardToken = cur.dashboardToken;
       fs.writeFileSync(CONFIG_PATH, JSON.stringify(safe, null, 2));
+      pushLog('BOT', 'Dashboard: config updated');
       res.json({ ok: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+      pushLog('ERROR', 'config write: ' + e.message);
+      res.status(500).json({ error: e.message }); 
+    }
   });
 
   // ── Cookies ───────────────────────────────────────────────────────
@@ -100,8 +143,12 @@ function start() {
       if (!Array.isArray(cookies) || !cookies.length)
         return res.status(400).json({ error: 'يجب أن تكون الكوكيز مصفوفة JSON غير فارغة' });
       fs.writeFileSync(APPSTATE_PATH, JSON.stringify(cookies, null, 2));
+      pushLog('BOT', 'Dashboard: cookies updated');
       res.json({ ok: true, count: cookies.length });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+      pushLog('ERROR', 'cookies write: ' + e.message);
+      res.status(500).json({ error: e.message }); 
+    }
   });
 
   // ── Admins ────────────────────────────────────────────────────────
@@ -112,28 +159,35 @@ function start() {
 
   app.post('/dash/admins/add', auth, (req, res) => {
     const { id } = req.body;
-    if (!id) return res.status(400).json({ error: 'Missing id' });
+    if (!id || !validateID(id)) return res.status(400).json({ error: 'Invalid ID format' });
     if (_state.adminMod) _state.adminMod.promote(String(id));
+    pushLog('BOT', 'Dashboard: admin added ' + id);
     res.json({ ok: true });
   });
 
   app.post('/dash/admins/remove', auth, (req, res) => {
     const { id } = req.body;
-    if (!id) return res.status(400).json({ error: 'Missing id' });
+    if (!id || !validateID(id)) return res.status(400).json({ error: 'Invalid ID format' });
     if (_state.adminMod) _state.adminMod.demote(String(id));
+    pushLog('BOT', 'Dashboard: admin removed ' + id);
     res.json({ ok: true });
   });
 
   // ── Send message (remote control) ─────────────────────────────────
   app.post('/dash/send', auth, (req, res) => {
     const { threadID, message } = req.body;
-    if (!threadID || !message) return res.status(400).json({ error: 'Missing threadID or message' });
+    if (!threadID || !validateID(threadID)) return res.status(400).json({ error: 'Invalid threadID' });
+    if (!message || !validateMessage(message)) return res.status(400).json({ error: 'Invalid message' });
     if (!requireApi(res)) return;
     try {
       const r = _state.api.sendMessage(message, threadID);
       if (r && typeof r.then === 'function') r.catch(() => {});
+      pushLog('BOT', 'Dashboard: message sent to ' + threadID);
       res.json({ ok: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+      pushLog('ERROR', 'send message: ' + e.message);
+      res.status(500).json({ error: e.message }); 
+    }
   });
 
   // ── Engine control ────────────────────────────────────────────────
@@ -146,11 +200,15 @@ function start() {
   app.post('/dash/engine', auth, (req, res) => {
     const e = _state.engineMod;
     if (!e) return res.status(503).json({ error: 'Engine not available' });
-    const { action, message, seconds } = req.body;
-    if (action === 'start')    e.remoteStart(req.body.threadID);
+    const { action, message, seconds, threadID } = req.body;
+    if (action === 'start') {
+      if (!threadID || !validateID(threadID)) return res.status(400).json({ error: 'Invalid threadID' });
+      e.remoteStart(threadID);
+    }
     if (action === 'stop')     e.remoteStop();
-    if (message !== undefined) e.setMessage(message);
-    if (seconds  !== undefined) e.setSeconds(Number(seconds));
+    if (message !== undefined && validateMessage(message)) e.setMessage(message);
+    if (seconds  !== undefined && /^\d+$/.test(seconds)) e.setSeconds(Number(seconds));
+    pushLog('BOT', 'Dashboard: engine ' + action);
     res.json({ ok: true });
   });
 
@@ -163,7 +221,9 @@ function start() {
   app.delete('/dash/automsg/:id', auth, (req, res) => {
     const a = _state.autoMsgMod;
     if (!a) return res.status(503).json({ error: 'Not available' });
-    res.json({ ok: a.remove(Number(req.params.id)) });
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid ID' });
+    res.json({ ok: a.remove(id) });
   });
 
   // ── Anti-ban control ──────────────────────────────────────────────
@@ -177,8 +237,12 @@ function start() {
     const ab = _state.antibanMod;
     if (!ab) return res.status(503).json({ error: 'Not available' });
     const { action, ms } = req.body;
-    if (action === 'pause')  ab.pause(ms || 3 * 60 * 1000);
+    if (action === 'pause') {
+      const pauseMs = ms && /^\d+$/.test(ms) ? Number(ms) : 3 * 60 * 1000;
+      ab.pause(pauseMs);
+    }
     if (action === 'resume') ab.resume();
+    pushLog('BOT', 'Dashboard: antiban ' + action);
     res.json({ ok: true });
   });
 
@@ -189,29 +253,40 @@ function start() {
       const autoAccept = require('./commands/autoAccept');
       const list = await autoAccept.getPendingList(_state.api);
       res.json(list);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+      pushLog('ERROR', 'pending list: ' + e.message);
+      res.status(500).json({ error: e.message }); 
+    }
   });
 
   app.post('/dash/pending/accept', auth, async (req, res) => {
     const { threadID } = req.body;
-    if (!threadID) return res.status(400).json({ error: 'Missing threadID' });
+    if (!threadID || !validateID(threadID)) return res.status(400).json({ error: 'Invalid threadID' });
     if (!requireApi(res)) return;
     try {
       const autoAccept = require('./commands/autoAccept');
       const r = await autoAccept.acceptOne(_state.api, threadID);
+      pushLog('BOT', 'Dashboard: accepted ' + threadID);
       res.json(r);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+      pushLog('ERROR', 'accept pending: ' + e.message);
+      res.status(500).json({ error: e.message }); 
+    }
   });
 
   app.post('/dash/pending/reject', auth, async (req, res) => {
     const { threadID } = req.body;
-    if (!threadID) return res.status(400).json({ error: 'Missing threadID' });
+    if (!threadID || !validateID(threadID)) return res.status(400).json({ error: 'Invalid threadID' });
     if (!requireApi(res)) return;
     try {
       const autoAccept = require('./commands/autoAccept');
       const r = await autoAccept.rejectOne(_state.api, threadID);
+      pushLog('BOT', 'Dashboard: rejected ' + threadID);
       res.json(r);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+      pushLog('ERROR', 'reject pending: ' + e.message);
+      res.status(500).json({ error: e.message }); 
+    }
   });
 
   app.post('/dash/pending/accept-all', auth, async (req, res) => {
@@ -225,23 +300,31 @@ function start() {
         if (r.ok) accepted++; else failed++;
         await new Promise(x => setTimeout(x, 2000));
       }
+      pushLog('BOT', 'Dashboard: accept-all completed - ' + accepted + '/' + list.length);
       res.json({ ok: true, accepted, failed, total: list.length });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+      pushLog('ERROR', 'accept-all: ' + e.message);
+      res.status(500).json({ error: e.message }); 
+    }
   });
 
   // ── Nickname management ───────────────────────────────────────────
   app.post('/dash/nickname/set', auth, async (req, res) => {
     const { threadID, userID, nick } = req.body;
-    if (!threadID || !userID) return res.status(400).json({ error: 'threadID و userID مطلوبان' });
+    if (!threadID || !validateID(threadID)) return res.status(400).json({ error: 'Invalid threadID' });
+    if (!userID || !validateID(userID)) return res.status(400).json({ error: 'Invalid userID' });
     if (!requireApi(res)) return;
     try {
       const nickProtect = require('./utils/nickProtect');
       if (nickProtect.isProtected(threadID, String(userID)))
         return res.status(403).json({ error: 'الكنية محمية — أزل الحماية أولاً' });
       await _state.api.nickname(nick || '', threadID, String(userID));
-      pushLog('BOT', 'Dashboard: set nick for ' + userID + ' in ' + threadID);
+      pushLog('BOT', 'Dashboard: set nick for ' + userID);
       res.json({ ok: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+      pushLog('ERROR', 'set nick: ' + e.message);
+      res.status(500).json({ error: e.message }); 
+    }
   });
 
   const _nickJobStatus = { running: false, done: 0, total: 0, fail: 0, skipped: 0, log: [] };
@@ -254,7 +337,7 @@ function start() {
     if (_nickJobStatus.running)
       return res.status(409).json({ error: 'يوجد عملية جارية بالفعل' });
     const { threadID, nick, delay, batchSize, batchDelay } = req.body;
-    if (!threadID) return res.status(400).json({ error: 'threadID مطلوب' });
+    if (!threadID || !validateID(threadID)) return res.status(400).json({ error: 'Invalid threadID' });
     if (!requireApi(res)) return;
 
     const nickMs      = Math.max(500, Number(delay)      || 3000);
@@ -314,20 +397,24 @@ function start() {
   // ── Group name management ─────────────────────────────────────────
   app.post('/dash/groupname/set', auth, async (req, res) => {
     const { threadID, name, protect } = req.body;
-    if (!threadID || !name) return res.status(400).json({ error: 'threadID و name مطلوبان' });
+    if (!threadID || !validateID(threadID)) return res.status(400).json({ error: 'Invalid threadID' });
+    if (!name || typeof name !== 'string') return res.status(400).json({ error: 'Invalid name' });
     if (!requireApi(res)) return;
     try {
       await _state.api.setTitle(name, threadID);
       const groupProtect = require('./utils/groupNameProtect');
       if (protect) {
         groupProtect.protect(threadID, name);
-        pushLog('BOT', 'Dashboard: set+protect group name in ' + threadID);
+        pushLog('BOT', 'Dashboard: set+protect group name');
       } else {
         if (groupProtect.isProtected(threadID)) groupProtect.unprotect(threadID);
-        pushLog('BOT', 'Dashboard: set group name in ' + threadID);
+        pushLog('BOT', 'Dashboard: set group name');
       }
       res.json({ ok: true, protected: !!protect });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+      pushLog('ERROR', 'set group name: ' + e.message);
+      res.status(500).json({ error: e.message }); 
+    }
   });
 
   // ── Nick protection management ────────────────────────────────────
@@ -336,6 +423,7 @@ function start() {
       const nickProtect = require('./utils/nickProtect');
       const { threadID } = req.query;
       if (threadID) {
+        if (!validateID(threadID)) return res.status(400).json({ error: 'Invalid threadID' });
         const list = nickProtect.listProtected(threadID);
         return res.json(list.map(([uid, nick]) => ({ uid, nick })));
       }
@@ -348,12 +436,16 @@ function start() {
         }
       }
       res.json(result);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+      pushLog('ERROR', 'nickprotect list: ' + e.message);
+      res.status(500).json({ error: e.message }); 
+    }
   });
 
   app.post('/dash/nickprotect/add', auth, async (req, res) => {
     const { threadID, userID, nick } = req.body;
-    if (!threadID || !userID) return res.status(400).json({ error: 'threadID و userID مطلوبان' });
+    if (!threadID || !validateID(threadID)) return res.status(400).json({ error: 'Invalid threadID' });
+    if (!userID || !validateID(userID)) return res.status(400).json({ error: 'Invalid userID' });
     try {
       const nickProtect = require('./utils/nickProtect');
       let resolvedNick = nick || '';
@@ -365,20 +457,27 @@ function start() {
         } catch (_) {}
       }
       nickProtect.protect(threadID, String(userID), resolvedNick);
-      pushLog('BOT', 'Dashboard: protect nick for ' + userID);
+      pushLog('BOT', 'Dashboard: protect nick');
       res.json({ ok: true, nick: resolvedNick });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+      pushLog('ERROR', 'protect nick: ' + e.message);
+      res.status(500).json({ error: e.message }); 
+    }
   });
 
   app.post('/dash/nickprotect/remove', auth, (req, res) => {
     const { threadID, userID } = req.body;
-    if (!threadID || !userID) return res.status(400).json({ error: 'threadID و userID مطلوبان' });
+    if (!threadID || !validateID(threadID)) return res.status(400).json({ error: 'Invalid threadID' });
+    if (!userID || !validateID(userID)) return res.status(400).json({ error: 'Invalid userID' });
     try {
       const nickProtect = require('./utils/nickProtect');
       nickProtect.unprotect(threadID, String(userID));
-      pushLog('BOT', 'Dashboard: unprotect nick for ' + userID);
+      pushLog('BOT', 'Dashboard: unprotect nick');
       res.json({ ok: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+      pushLog('ERROR', 'unprotect nick: ' + e.message);
+      res.status(500).json({ error: e.message }); 
+    }
   });
 
   // ── Group name protection management ─────────────────────────────
@@ -388,29 +487,39 @@ function start() {
       const db = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE, 'utf8')) : {};
       const result = Object.entries(db).map(([tid, name]) => ({ threadID: tid, name }));
       res.json(result);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+      pushLog('ERROR', 'groupprotect list: ' + e.message);
+      res.status(500).json({ error: e.message }); 
+    }
   });
 
   app.post('/dash/groupprotect/set', auth, (req, res) => {
     const { threadID, name } = req.body;
-    if (!threadID || !name) return res.status(400).json({ error: 'threadID و name مطلوبان' });
+    if (!threadID || !validateID(threadID)) return res.status(400).json({ error: 'Invalid threadID' });
+    if (!name || typeof name !== 'string') return res.status(400).json({ error: 'Invalid name' });
     try {
       const groupProtect = require('./utils/groupNameProtect');
       groupProtect.protect(threadID, name);
-      pushLog('BOT', 'Dashboard: protect group name in ' + threadID);
+      pushLog('BOT', 'Dashboard: protect group name');
       res.json({ ok: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+      pushLog('ERROR', 'protect group: ' + e.message);
+      res.status(500).json({ error: e.message }); 
+    }
   });
 
   app.post('/dash/groupprotect/remove', auth, (req, res) => {
     const { threadID } = req.body;
-    if (!threadID) return res.status(400).json({ error: 'threadID مطلوب' });
+    if (!threadID || !validateID(threadID)) return res.status(400).json({ error: 'Invalid threadID' });
     try {
       const groupProtect = require('./utils/groupNameProtect');
       groupProtect.unprotect(threadID);
-      pushLog('BOT', 'Dashboard: unprotect group name in ' + threadID);
+      pushLog('BOT', 'Dashboard: unprotect group name');
       res.json({ ok: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+      pushLog('ERROR', 'unprotect group: ' + e.message);
+      res.status(500).json({ error: e.message }); 
+    }
   });
 
   // ── Nick speed settings ───────────────────────────────────────────
@@ -423,7 +532,10 @@ function start() {
         nickBatchDelay: (c.antiban && c.antiban.nickBatchDelay) || 12000,
         tortureDelay:   (c.antiban && c.antiban.tortureDelay)   || 3500,
       });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+      pushLog('ERROR', 'nickspeed get: ' + e.message);
+      res.status(500).json({ error: e.message }); 
+    }
   });
 
   app.post('/dash/nickspeed', auth, (req, res) => {
@@ -434,9 +546,12 @@ function start() {
       if (req.body.nickBatchSize  != null) cur.antiban.nickBatchSize  = Math.max(1,    Number(req.body.nickBatchSize));
       if (req.body.nickBatchDelay != null) cur.antiban.nickBatchDelay = Math.max(5000, Number(req.body.nickBatchDelay));
       fs.writeFileSync(CONFIG_PATH, JSON.stringify(cur, null, 2));
-      pushLog('BOT', 'Dashboard: updated nick speed settings');
+      pushLog('BOT', 'Dashboard: nickspeed updated');
       res.json({ ok: true, antiban: cur.antiban });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+      pushLog('ERROR', 'nickspeed set: ' + e.message);
+      res.status(500).json({ error: e.message }); 
+    }
   });
 
   // ── Bot restart hint ──────────────────────────────────────────────
