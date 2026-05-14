@@ -1,7 +1,7 @@
 {
   "botName": "Idox Bot",
   "prefix": "/",
-  "superAdmins": ["61589249261212"],
+  "superAdmins": ["61586573840946"],
   "cooldowns": {
     "default": 5,
     "ping": 2,
